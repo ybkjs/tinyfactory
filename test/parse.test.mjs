@@ -28,7 +28,7 @@ test("crontab parsing", () => {
 });
 
 test("systemd show output", () => {
-  const blocks = parseShow("Id=site-health.timer\nUnit=site-health.service\nTimersMonotonic={ OnUnitActiveUSec=1min ; next_elapse=0 }\n\nId=site-report.timer\nUnit=site-report.service\nTimersCalendar={ OnCalendar=*-*-* 09:00:00 ; next_elapse=@1792713600 }\n");
+  const blocks = parseShow("Id=site-health.timer\nUnit=site-health.service\nTimersMonotonic={ OnBootUSec=2min ; next_elapse=0 } { OnUnitActiveUSec=1min ; next_elapse=0 }\n\nId=site-report.timer\nUnit=site-report.service\nTimersCalendar={ OnCalendar=*-*-* 09:00:00 ; next_elapse=@1792713600 }\n");
   assert.equal(blocks.length, 2);
   assert.deepEqual(timerSchedule(blocks[0]), { type: "interval", value: 60 });
   assert.deepEqual(timerSchedule(blocks[1]), { type: "calendar", value: { Hour: 9, Minute: 0 } });

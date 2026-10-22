@@ -27,7 +27,9 @@ export function timerSchedule(t) {
     const daily = cal[1].match(/^\*-\*-\* (\d{2}):(\d{2})/);
     return daily ? { type: "calendar", value: { Hour: Number(daily[1]), Minute: Number(daily[2]) } } : { type: "text", value: cal[1] };
   }
-  const mono = (t.TimersMonotonic || "").match(/On(?:UnitActive|UnitInactive|Boot|Startup)USec=([^;]+?)\s*;/);
+  // The repeat interval is OnUnitActive/OnUnitInactive; OnBoot/OnStartup only say when the first run happens
+  const text = t.TimersMonotonic || "";
+  const mono = text.match(/OnUnit(?:Active|Inactive)USec=([^;]+?)\s*;/) || text.match(/On(?:Boot|Startup)USec=([^;]+?)\s*;/);
   if (mono) {
     const m = mono[1].match(/(?:(\d+)h)?\s*(?:(\d+)min)?\s*(?:(\d+)s)?/);
     const sec = (Number(m?.[1] || 0) * 3600) + (Number(m?.[2] || 0) * 60) + Number(m?.[3] || 0);
