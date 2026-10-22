@@ -57,7 +57,7 @@ export async function sqlite(db, sql) {
 // Minimal TOML reader for flat key = value files (Codex automation.toml). Handles strings, triple-quoted strings, numbers, booleans.
 export function parseFlatToml(text) {
   const result = {};
-  const lines = text.split("\n");
+  const lines = text.split(/\r?\n/);   // files written on Windows end lines with \r\n
   for (let i = 0; i < lines.length; i++) {
     const match = lines[i].match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)$/);
     if (!match) continue;

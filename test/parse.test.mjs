@@ -14,6 +14,13 @@ test("flat TOML with triple-quoted strings", () => {
   assert.equal(t.version, 1);
 });
 
+test("flat TOML written on Windows (CRLF)", () => {
+  const t = parseFlatToml('id = "daily"\r\nname = "Daily news"\r\nprompt = """line one\r\nline two"""\r\nenabled = true\r\n');
+  assert.equal(t.name, "Daily news");
+  assert.equal(t.enabled, true);
+  assert.match(t.prompt, /line one/);
+});
+
 test("helpers", () => {
   assert.ok(globMatch("codex:*", "codex:daily"));
   assert.ok(!globMatch("codex:*", "cron:abc"));
