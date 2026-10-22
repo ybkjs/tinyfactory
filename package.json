@@ -1,6 +1,6 @@
 {
   "name": "tinyfactory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Watch your AI agent automations run as a cozy 3D miniature factory. Auto-discovers Claude Code, Codex, OpenClaw, cron, launchd and systemd jobs.",
   "type": "module",
   "bin": {

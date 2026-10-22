@@ -853,39 +853,113 @@ async function poll() {
     state = { ...state, stale: true };
   }
   ui.render(state);
+  updateTab();
 }
 
-// Share card: the current frame plus a title strip, saved as PNG
+// Share poster: the current frame (with its post-processing) framed by a title card and a strip of today's numbers.
+// Phones get the system share sheet; elsewhere it downloads as PNG.
 function shareImage() {
-  renderer.render(scene, camera);
+  if (post) composer.render(); else renderer.render(scene, camera);
   const src = renderer.domElement;
   const out = document.createElement("canvas");
   out.width = src.width;
   out.height = src.height;
   const ctx = out.getContext("2d");
   ctx.drawImage(src, 0, 0);
-  const s = out.width / innerWidth;
-  ctx.fillStyle = "rgba(251,248,242,0.92)";
-  ctx.beginPath();
-  ctx.roundRect(24 * s, 24 * s, 420 * s, 92 * s, 18 * s);
-  ctx.fill();
+  const s = out.width / innerWidth, W = out.width, H = out.height;
+  const font = (weight, size) => `${weight} ${size * s}px -apple-system, "PingFang SC", "Helvetica Neue", sans-serif`;
+  // Soft vignette so the cards sit on calmer ground
+  const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+  v.addColorStop(0, "rgba(0,0,0,0)");
+  v.addColorStop(1, "rgba(20,30,10,0.28)");
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
+  const card = (x, y, w, h, r) => {
+    ctx.save();
+    ctx.shadowColor = "rgba(40,30,10,0.22)";
+    ctx.shadowBlur = 24 * s;
+    ctx.shadowOffsetY = 6 * s;
+    ctx.fillStyle = "rgba(251,248,242,0.96)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    ctx.fill();
+    ctx.restore();
+  };
+  // Title card, top left
+  const title = state.title || t("shareTitle");
+  ctx.font = font(700, 30);
+  const titleW = Math.max(ctx.measureText(title).width + 110 * s, 330 * s);
+  card(28 * s, 28 * s, titleW, 104 * s, 22 * s);
+  ctx.font = font(400, 40);
+  ctx.fillText("🏭", 46 * s, 92 * s);
   ctx.fillStyle = "#2c2a26";
-  ctx.font = `700 ${26 * s}px -apple-system, "PingFang SC", sans-serif`;
-  ctx.fillText(`🏭 ${state.title || t("shareTitle")}`, 44 * s, 64 * s);
-  const lines = state.factories.reduce((n, f) => n + f.lines.length, 0);
-  ctx.font = `500 ${15 * s}px -apple-system, "PingFang SC", sans-serif`;
+  ctx.font = font(700, 30);
+  ctx.fillText(title, 104 * s, 76 * s);
+  const d = new Date();
   ctx.fillStyle = "#8b857b";
-  ctx.fillText(`${t("lines", lines)} · ${state.agents.length} agents · ${t("doneToday")} ${state.counts.done || 0} · tinyfactory`, 44 * s, 96 * s);
-  out.toBlob((blob) => {
+  ctx.font = font(500, 15);
+  ctx.fillText(`${t("title")} · ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, 104 * s, 106 * s);
+  // Numbers strip, bottom centre
+  const lines = state.factories.reduce((n, f) => n + f.lines.length, 0), c = state.counts || {};
+  const cells = [[String(lines), t("linesWord"), "#2c2a26"], [String(state.agents.length), "Agent", "#2c2a26"], [String(c.running || 0), t("running"), "#3f9b4f"], [String(c.done || 0), t("doneToday"), "#2c2a26"], [String(c.warn || 0), t("warn"), c.warn ? "#e0663c" : "#2c2a26"]];
+  const cw = 132 * s, stripW = cw * cells.length + 40 * s, sx = (W - stripW) / 2, sy = H - 150 * s;
+  card(sx, sy, stripW, 104 * s, 24 * s);
+  cells.forEach(([n, label, color], i) => {
+    const x = sx + 20 * s + cw * i + cw / 2;
+    ctx.textAlign = "center";
+    ctx.fillStyle = color;
+    ctx.font = font(700, 36);
+    ctx.fillText(n, x, sy + 56 * s);
+    ctx.fillStyle = "#8b857b";
+    ctx.font = font(500, 14);
+    ctx.fillText(label, x, sy + 82 * s);
+    if (i) { ctx.fillStyle = "rgba(60,50,40,0.1)"; ctx.fillRect(sx + 20 * s + cw * i, sy + 26 * s, 1.5 * s, 52 * s); }
+  });
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = font(600, 14);
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 6 * s;
+  ctx.fillText("tinyfactory · github.com/ybkjs/tinyfactory", W / 2, H - 22 * s);
+  const name = `tinyfactory-${d.toISOString().slice(0, 10)}.png`;
+  out.toBlob(async (blob) => {
+    const file = new File([blob], name, { type: "image/png" });
+    if (narrow() && navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch { /* closed: fall back to download */ } }
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `tinyfactory-${new Date().toISOString().slice(0, 10)}.png`;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }, "image/png");
 }
 
+// When something needs attention, say so on the browser tab too: "(2) tinyfactory" and a red dot on the icon
+const baseTitle = document.title;
+const iconLink = document.querySelector('link[rel="icon"]');
+const baseIcon = iconLink?.href;
+const alertIcon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🏭</text><circle cx="78" cy="22" r="20" fill="#ff3b30" stroke="white" stroke-width="6"/></svg>')}`;
+let lastWarn = -1;
+function updateTab() {
+  const warn = state.counts?.warn || 0, name = state.title || baseTitle;
+  document.title = warn ? `(${warn}) ${name}` : name;
+  if (warn === lastWarn || !iconLink) return;
+  lastWarn = warn;
+  iconLink.href = warn ? alertIcon : baseIcon;
+}
+
+// Keyboard: H home, arrows turn, +/- zoom, L labels, T tasks, Esc closes a detail (ui.js)
+addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, [contenteditable]")) return;
+  const click = (act) => document.querySelector(`.toolbar [data-act="${act}"]`)?.click();
+  const keys = { h: () => onTool("reset"), ArrowLeft: () => onTool("left"), ArrowRight: () => onTool("right"), "+": () => onTool("in"), "=": () => onTool("in"), "-": () => onTool("out"), _: () => onTool("out"), l: () => click("labels"), t: () => click("panel") };
+  const fn = keys[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+  if (!fn) return;
+  e.preventDefault();
+  fn();
+});
+
 ui.render(state);
+updateTab();
 setInterval(poll, Math.max(2, state.interval || 10) * 1000);
 ui.setCity(city.id);
 fetchWeather();

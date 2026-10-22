@@ -15,6 +15,8 @@ const ICONS = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
   share: '<path d="M12 4v11M7.5 8.5L12 4l4.5 4.5"/><path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>'
 };
+// Keyboard shortcuts shown in the button tooltips (handled in main.js)
+const KEYS = { reset: "H", left: "←", right: "→", in: "+", out: "−", labels: "L", panel: "T" };
 const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
 
 export function createUI({ onTool, cities }) {
@@ -36,7 +38,7 @@ export function createUI({ onTool, cities }) {
     <div class="card panel" id="panel"></div>
     <div class="labels" id="labels"></div>
     <div class="toolbar">
-      ${tools.map(([i, k, a]) => `<button data-act="${a}" title="${t(k)}" aria-label="${t(k)}" class="${a === "in" || a === "out" ? "wide-only" : ""}${a === "out" || a === "weather" ? " group-end" : ""}">${icon(i)}<span>${t(k)}</span></button>`).join("")}
+      ${tools.map(([i, k, a]) => `<button data-act="${a}" title="${t(k)}${KEYS[a] ? ` (${KEYS[a]})` : ""}" aria-label="${t(k)}" class="${a === "in" || a === "out" ? "wide-only" : ""}${a === "out" || a === "weather" ? " group-end" : ""}">${icon(i)}<span>${t(k)}</span></button>`).join("")}
     </div>
     <div class="weather-menu" id="weather-menu">
       <div class="menu-title">${t("city")}</div>

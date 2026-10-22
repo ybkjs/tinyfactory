@@ -94,7 +94,9 @@ export function createCollector({ config = {}, log = () => {}, sources }) {
   let seq = 0, primed = false, state = null;
 
   async function refresh() {
-    const results = await Promise.all(sources.map((s) => s.collect(ctx).catch((error) => { log(`${s.id}: ${error.message}`); return null; })));
+    // A source hidden as a whole ("cron:*") isn't asked at all: no point running crontab every few seconds to throw it away
+    const skipped = (s) => (config.hide || []).includes(`${s.id}:*`);
+    const results = await Promise.all(sources.map((s) => (skipped(s) ? null : s.collect(ctx).catch((error) => { log(`${s.id}: ${error.message}`); return null; }))));
     const groups = results.flat().filter(Boolean);
     const view = assemble(groups, config);
     const agentOf = new Map(view.factories.flatMap((f) => f.lines.map((l) => [l.id, l.agent])));

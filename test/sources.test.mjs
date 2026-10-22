@@ -21,12 +21,19 @@ test("claude: busy and waiting sessions", async () => {
   assert.equal(g.lines[0].status, "running");
   assert.deepEqual(g.lines[0].note, { key: "waiting", n: 1 });
   assert.equal(g.agent.busy, 1);
+  // A finished session counts as a run of the line
+  assert.equal(g.runs.length, 1);
+  assert.equal(g.runs[0].line, "claude:sessions");
 });
 
 test("openclaw: failing and paused jobs", async () => {
   const g = await openclaw.collect({ config: {}, memory: {} });
   assert.deepEqual(g.lines.map((l) => [l.name, l.status]), [["Morning digest", "warn"], ["Old job", "paused"]]);
   assert.deepEqual(g.lines[0].note, { key: "failing", n: 12, reason: "auth" });
+  // The run log fills in the history; the latest run (also in jobs.json) appears once
+  const ids = g.runs.map((r) => r.id);
+  assert.equal(new Set(ids).size, 3);
+  assert.deepEqual(g.runs.filter((r) => r.id === "openclaw:j1:1792285860900").map((r) => r.ok), [true]);
 });
 
 test("codex: automations from toml even without the app database", async () => {

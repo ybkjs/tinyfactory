@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { assemble } from "../src/collect.mjs";
 import { commandName, parseCrontab } from "../src/sources/cron.mjs";
-import { parseShow, parseStamp, timerSchedule } from "../src/sources/systemd.mjs";
+import { parseJournal, parseShow, parseStamp, timerSchedule } from "../src/sources/systemd.mjs";
 import { globMatch, ms, parseFlatToml } from "../src/util.mjs";
 import { lineStatus, scheduleText, setLang } from "../web/i18n.js";
 
@@ -34,6 +34,9 @@ test("systemd show output", () => {
   assert.deepEqual(timerSchedule(blocks[1]), { type: "calendar", value: { Hour: 9, Minute: 0 } });
   assert.equal(parseStamp("@1792640000"), 1792640000000);
   assert.equal(parseStamp("n/a"), 0);
+  // Journal: a success per "Finished", a failure per "Failed with result"; other lines ignored
+  const runs = parseJournal("1792678482.768469 host systemd[1]: Finished fk1-sales.service - Sales.\n1792678482.756699 host systemd[1]: fk1-sales.service: Deactivated successfully.\n1792678182.1 host node[812]: Finished nothing\n1792677882.5 host systemd[1]: fk1-sales.service: Failed with result 'exit-code'.\n");
+  assert.deepEqual(runs, [{ at: 1792677882000, ok: false }, { at: 1792678482000, ok: true }]);
 });
 
 test("assemble: hide, rename, assign, regroup, known agents, counts", () => {

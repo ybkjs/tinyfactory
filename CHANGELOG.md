@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 — 2026-10-22
+
+Real history from the first look, and a monitor you notice from another tab.
+
+- **systemd runs come from the journal.** Each poll reads what was logged since the last one, so a timer that runs every minute no longer loses runs between polls, and the first look brings back the last weeks (falls back to exit timestamps when the journal can't be read).
+- **More history out of the box**: finished Claude Code sessions of the last two weeks, and the last runs from each OpenClaw job's run log.
+- **Tab badge**: "(1) tinyfactory" and a red dot on the icon while something needs attention.
+- **Share poster** with a title card, the date and today's numbers; the system share sheet on phones.
+- **Keyboard shortcuts**: H home, arrows turn, + − zoom, L labels, T task list (shown in the button tooltips).
+- A source hidden as a whole (`"hide": ["cron:*"]`) isn't polled at all, so `crontab -l` no longer fills the system log every few seconds.
+
 ## 0.2.0 — 2026-10-22
 
 The factory you can read: click anything to see how it's doing.

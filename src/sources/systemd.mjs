@@ -47,6 +47,30 @@ export function timerSchedule(t) {
   return { type: "text", value: "timer" };
 }
 
+// journalctl -o short-unix lines → finished runs: "Finished …" is a success, "Failed with result" a failure
+export function parseJournal(text) {
+  const runs = [];
+  for (const line of String(text || "").split("\n")) {
+    const m = line.match(/^(\d+(?:\.\d+)?) \S+ systemd\[1\]: (.*)$/);
+    if (!m) continue;
+    if (m[2].startsWith("Finished ")) runs.push({ at: Math.floor(Number(m[1])) * 1000, ok: true });
+    else if (m[2].includes("Failed with result")) runs.push({ at: Math.floor(Number(m[1])) * 1000, ok: false });
+  }
+  return runs.sort((a, b) => a.at - b.at);
+}
+
+// Runs from the journal since the last look, so none slip by between two polls; the first look also brings back
+// the last weeks for the detail card. null when the journal can't be read (then exit timestamps are used instead).
+async function journalRuns(unit, since) {
+  const args = since
+    ? ["-u", unit, "-o", "short-unix", "--since", `@${Math.floor(since / 1000)}`, "--no-pager"]
+    : ["-u", unit, "-o", "short-unix", "--since", "-21d", "-r", "-n", "600", "--no-pager"];
+  const out = await run("journalctl", args, { timeout: 8000 });
+  if (out === null || /insufficient permissions/i.test(out)) return null;
+  const runs = parseJournal(out);
+  return since ? runs : runs.slice(-20);
+}
+
 async function todayCount(unit) {
   const cached = journalCache.get(unit);
   if (cached && Date.now() - cached.at < 60000) return cached.n;
@@ -73,16 +97,21 @@ export async function collect(ctx) {
   const svcInfo = units.length ? parseShow((await run("systemctl", ["show", "--timestamp=unix", ...units, ...serviceProps.flatMap((p) => ["-p", p])])) || "") : [];
   const svc = new Map(svcInfo.map((s) => [s.Id, s]));
 
-  const prev = ctx.memory.systemd || {};
-  const memory = {};
+  const prev = ctx.memory.systemd || { exit: {}, journal: {} };
+  const memory = { exit: {}, journal: {} };
   const runs = [];
   const lines = [];
   for (const t of timerInfo) {
     const s = svc.get(t.Unit) || {};
     const name = t.Unit.replace(/\.service$/, "");
     const exit = parseStamp(s.ExecMainExitTimestamp);
-    memory[name] = exit;
-    if (prev[name] && exit && exit !== prev[name]) runs.push({ id: `systemd:${name}:${exit}`, line: `systemd:${name}`, at: exit, ok: s.Result === "success" });
+    memory.exit[name] = exit;
+    // Ids use whole seconds both ways, so a run seen in the journal and by its exit time counts once
+    const found = await journalRuns(t.Unit, prev.journal[name]);
+    if (found) {
+      for (const r of found) runs.push({ id: `systemd:${name}:${r.at}`, line: `systemd:${name}`, at: r.at, ok: r.ok });
+      memory.journal[name] = Math.max(prev.journal[name] || Date.now() - 1000, ...found.map((r) => r.at));
+    } else if (prev.exit[name] && exit && exit !== prev.exit[name]) runs.push({ id: `systemd:${name}:${exit}`, line: `systemd:${name}`, at: exit, ok: s.Result === "success" });
     let status = "scheduled", note = null;
     if (s.ActiveState === "activating" || s.ActiveState === "active" && s.Type === "oneshot") status = "running";
     else if (s.Result && s.Result !== "success") { status = "warn"; note = { key: "failed", result: s.Result }; }

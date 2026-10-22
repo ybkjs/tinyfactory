@@ -106,7 +106,9 @@ Line ids look like `source:name` (e.g. `codex:daily-news`, `systemd:backup`).
 - **Click to see how it's doing**: click a machine, an agent, the hub, a label or a line in the list. The camera flies there and the panel shows its status, schedule, last and next run, runs today, and the last 20 runs (green ok, red failed) with the success rate. On wide screens an activity card lists runs as they arrive. A failed run ships a parcel with a red lid.
 - **People at work**: each factory yard has workers in hard hats; when a line runs, one walks over and works the machine, and a line that runs continuously keeps someone beside it. The agents blink and come alive while they work.
 - **Labels in three steps**: by default only lines that are running, online or need attention carry a label; the Labels button switches to all, then off.
-- **Share** saves the current view as a PNG.
+- **Share poster**: the Share button turns the current view into a poster with a title, the date and today's numbers; phones open the system share sheet.
+- **Visible from a background tab**: when a line needs attention the tab title reads "(1) …" and the icon gets a red dot.
+- **Keys**: H home, ← → turn, + − zoom, L labels, T task list, Esc closes a detail.
 - Drag to rotate, right-drag to pan, scroll or pinch to zoom; click a line in the list to fly to it.
 
 | Dusk | Snowy night |

@@ -18,7 +18,9 @@ export async function collect(ctx) {
 
   // A session that stops working between two polls (finished, or handed back to you) is one delivered parcel
   const prev = ctx.memory.claude || {};
-  const runs = jobs.filter((j) => prev[j.id] === "working" && j.state !== "working").map((j) => ({ id: `claude:${j.id}:${j.at}`, line: "claude:sessions", at: j.at, ok: true }));
+  // Sessions that finished (in the last two weeks, or just now while we watch) are the line's runs, ids stable across polls
+  const recent = Date.now() - 14 * 86400000;
+  const runs = jobs.filter((j) => (prev[j.id] === "working" && j.state !== "working") || (j.state === "done" && j.at > recent)).map((j) => ({ id: `claude:${j.id}:${j.at}`, line: "claude:sessions", at: j.at, ok: true }));
   ctx.memory.claude = Object.fromEntries(jobs.map((j) => [j.id, j.state]));
 
   const working = jobs.filter((j) => j.state === "working");

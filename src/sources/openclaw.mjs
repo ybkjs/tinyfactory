@@ -1,5 +1,5 @@
-// OpenClaw cron jobs: ~/.openclaw/cron/jobs.json
-import { home, readJson } from "../util.mjs";
+// OpenClaw cron jobs: ~/.openclaw/cron/jobs.json, with each job's run log in ~/.openclaw/cron/runs/<job id>.jsonl
+import { home, readJson, readTail } from "../util.mjs";
 
 export const id = "openclaw";
 
@@ -23,6 +23,13 @@ export async function collect() {
     };
   });
   const runs = data.jobs.filter((j) => j.state?.lastRunAtMs).map((j) => ({ id: `openclaw:${j.id}:${j.state.lastRunAtMs}`, line: `openclaw:${j.id}`, at: j.state.lastRunAtMs, ok: j.state.lastRunStatus === "ok" }));
+  // The last runs from each job's log (same ids as above, so the latest isn't counted twice)
+  for (const job of data.jobs) {
+    const log = readTail(home(".openclaw/cron/runs", `${job.id}.jsonl`), 32 * 1024);
+    if (!log) continue;
+    const entries = log.split("\n").map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter((e) => e?.action === "finished" && (e.runAtMs || e.ts));
+    for (const e of entries.slice(-20)) runs.push({ id: `openclaw:${job.id}:${e.runAtMs || e.ts}`, line: `openclaw:${job.id}`, at: e.runAtMs || e.ts, ok: e.status === "ok" });
+  }
   const failing = lines.filter((l) => l.status === "warn").length;
   return {
     factory: { id: "openclaw", name: { zh: "OpenClaw 定时任务", en: "OpenClaw jobs" }, building: "studio", color: "#e0533d" },

@@ -1,0 +1,4 @@
+{"ts":1792285861000,"jobId":"j1","action":"finished","status":"ok","runAtMs":1792285860900}
+{"ts":1792372341137,"jobId":"j1","action":"finished","status":"error","error":"auth","runAtMs":1792372340977}
+not json
+{"ts":1792458662234,"jobId":"j1","action":"finished","status":"error","error":"auth","runAtMs":1792458661033}
