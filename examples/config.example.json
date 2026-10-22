@@ -1,0 +1,16 @@
+{
+  "title": "My AI factory",
+  "city": "london",
+  "hide": ["launchd:*updater*"],
+  "rename": { "systemd:backup": "Nightly backup" },
+  "assign": { "systemd:*-report": "deepseek", "remote:server:*": "server" },
+  "agents": { "server": { "kind": "system", "name": "Cloud server", "sub": "systemd", "color": "#4caf7a" } },
+  "factories": [
+    { "name": "My shop", "match": ["remote:server:systemd:shop-*"], "building": "shop", "color": "#e8774a" },
+    { "name": "Content", "match": ["codex:*"], "building": "studio", "color": "#5b8def" }
+  ],
+  "lines": [
+    { "id": "weekly", "name": "Weekly review", "factory": "Content", "agent": "deepseek", "schedule": { "type": "cron", "value": "0 21 * * 0" }, "live": "webhook:weekly" }
+  ],
+  "remote": [{ "name": "server", "url": "http://127.0.0.1:4525", "token": "the token from the server's config" }]
+}

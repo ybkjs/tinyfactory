@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Keep tinyfactory running on a Mac, always at http://127.0.0.1:4520
+     1. Replace /usr/local/bin/node and the path to bin/tinyfactory.mjs (run `which node`; clone the repo or npm i -g)
+     2. cp com.tinyfactory.dashboard.plist ~/Library/LaunchAgents/
+     3. launchctl load ~/Library/LaunchAgents/com.tinyfactory.dashboard.plist -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tinyfactory.dashboard</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>/usr/local/lib/node_modules/tinyfactory/bin/tinyfactory.mjs</string>
+    <string>--no-open</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardErrorPath</key><string>/tmp/tinyfactory.log</string>
+</dict>
+</plist>

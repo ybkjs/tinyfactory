@@ -1,0 +1,13 @@
+name: Idea / 建议
+description: Something tinyfactory could do better
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to see or do? / 你想看到或做到什么？
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work? / 你觉得可以怎么做？

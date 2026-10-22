@@ -4,7 +4,8 @@ import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, s
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const HOME = homedir();
+// $HOME first: on Windows homedir() ignores it, and tests (and people) point HOME elsewhere
+export const HOME = process.env.HOME || homedir();
 export const home = (...parts) => join(HOME, ...parts);
 
 export function run(cmd, args, { timeout = 5000 } = {}) {

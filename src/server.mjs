@@ -35,11 +35,18 @@ async function weather(lat, lon) {
   return data;
 }
 
+// Too large: keep reading (and dropping) so the client gets a proper 413 instead of a cut connection;
+// only something absurdly large is cut off
 function readBody(req, limit = 16 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0, chunks = [];
-    req.on("data", (c) => { size += c.length; if (size > limit) { reject(new Error("too large")); req.destroy(); } else chunks.push(c); });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    const tooLarge = Object.assign(new Error(`report too large (over ${limit / 1024} KB)`), { status: 413 });
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > limit * 64) { reject(tooLarge); req.destroy(); }
+      else if (size <= limit) chunks.push(c);
+    });
+    req.on("end", () => (size > limit ? reject(tooLarge) : resolve(Buffer.concat(chunks).toString("utf8"))));
     req.on("error", reject);
   });
 }
@@ -78,7 +85,7 @@ export function startServer({ collector, port, host, token, info, log = console.
       createReadStream(file).pipe(res);
     } catch (error) {
       log(`error ${url.pathname}: ${error.message}`);
-      if (!res.headersSent) json(res, 400, { error: error.message });
+      if (!res.headersSent) json(res, error.status || 400, { error: error.message });
     }
   });
   return new Promise((resolve, reject) => {

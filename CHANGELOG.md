@@ -13,6 +13,11 @@ Real history from the first look, and a monitor you notice from another tab.
 - **Quick finder**: press `/` or ⌘K (or the search button) and type part of a name; Enter flies to it and opens its detail.
 - **Last 24 hours** on a line's detail: a ruler with a tick for every run (lines that run every few minutes keep just the bars).
 - **Loading screen** while the 3D view gets ready, with a message when the browser can't show WebGL.
+- **`tinyfactory doctor`** lists what each source found on this machine and why not, checks the config, Node and the port: paste it into an issue.
+- **A broken config is an error**, with the line and column and a pointer, instead of being silently ignored; unknown keys get a "did you mean", wrong types a warning. `--version` prints the version.
+- Reports over 16 KB get a proper `413` instead of a cut connection.
+- **Docs**: configuration reference, HTTP API, architecture and adding a source (`docs/`); examples for systemd, launchd and a full config (`examples/`); contributing guide, code of conduct, security policy, issue and pull request templates.
+- **CI** on Linux, macOS and Windows with Node 20, 22 and 24, a syntax and manifest check, coverage, and a release workflow: a version tag publishes the GitHub release from this changelog (and npm, once a token is set).
 - **Cloud shadows** drift over the park on sunny days; yards, plazas and platforms take snow and cloud shadows like the lawn.
 
 ## 0.2.0 — 2026-10-22

@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const out = mkdtempSync(join(tmpdir(), "tinyfactory-site-"));
@@ -25,9 +25,9 @@ test("site: page, demo flag, link preview and every three.js import", () => {
 
 test("site: the demo factory runs from the built modules alone", async () => {
   writeFileSync(join(out, "package.json"), '{ "type": "module" }');
-  const { createCollector } = await import(join(out, "src/assemble.js"));
-  const { demoSource } = await import(join(out, "src/demo.js"));
-  const { CITIES } = await import(join(out, "src/cities.js"));
+  const { createCollector } = await import(pathToFileURL(join(out, "src/assemble.js")).href);
+  const { demoSource } = await import(pathToFileURL(join(out, "src/demo.js")).href);
+  const { CITIES } = await import(pathToFileURL(join(out, "src/cities.js")).href);
   const state = await createCollector({ sources: [demoSource()] }).refresh();
   assert.equal(state.factories.length, 3);
   assert.ok(state.agents.some((a) => a.id === "deepseek"));

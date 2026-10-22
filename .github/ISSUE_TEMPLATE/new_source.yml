@@ -1,0 +1,22 @@
+name: New source / 新数据源
+description: Ask for a tool to show up on the map (or offer to add it)
+labels: [source]
+body:
+  - type: input
+    id: tool
+    attributes:
+      label: Tool / 工具
+      placeholder: GitHub Actions, n8n, Cursor, Windows Task Scheduler…
+    validations: { required: true }
+  - type: textarea
+    id: where
+    attributes:
+      label: Where does it keep its jobs and runs? / 它的任务和运行记录存在哪里？
+      description: A file, a database, a command, an API. Paths and a small sample help a lot (remove anything private).
+    validations: { required: true }
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Help / 帮忙
+      options:
+        - label: I'd like to write it myself (see docs/architecture.md) / 我想自己写

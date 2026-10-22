@@ -13,6 +13,7 @@ const codex = await import("../src/sources/codex.mjs");
 const openclaw = await import("../src/sources/openclaw.mjs");
 const webhook = await import("../src/sources/webhook.mjs");
 const { createCollector } = await import("../src/collect.mjs");
+const { doctor } = await import("../src/doctor.mjs");
 after(() => rmSync(home, { recursive: true, force: true }));
 
 test("claude: busy and waiting sessions", async () => {
@@ -56,4 +57,21 @@ test("webhook: reports become lines, finished runs become parcels", async () => 
   assert.equal(state.events.length, 1);
   assert.equal(state.events[0].agent, "custom");
   assert.throws(() => webhook.record({ status: "done" }), /line is required/);
+});
+
+test("doctor: says what each source found and why not, fails on a broken config", async () => {
+  const lines = [];
+  const code = await doctor({ configPath: `${home}/missing.json`, version: "test", out: (l) => lines.push(l) });
+  const text = lines.join("\n");
+  assert.equal(code, 0);
+  assert.match(text, /✓ claude +1 line/);
+  assert.match(text, /✓ codex +1 line/);
+  assert.match(text, /✓ openclaw +2 lines/);
+  assert.match(text, /remote +nothing — no "remote" machines/);
+  assert.match(text, /On the map: \d+ factories/);
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(`${home}/broken.json`, '{ "title": }');
+  const out = [];
+  assert.equal(await doctor({ configPath: `${home}/broken.json`, version: "test", out: (l) => out.push(l) }), 1);
+  assert.match(out.join("\n"), /isn't valid JSON at line 1/);
 });

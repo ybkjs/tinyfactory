@@ -7,7 +7,12 @@
 一行命令，自动找出这台电脑上的 Claude Code、Codex、OpenClaw、cron、launchd、systemd 定时任务，
 每条自动化是一条产线，每次运行是一个包裹，顺着传送带送到干活的 agent 面前。
 
-**[在线演示](https://ybkjs.github.io/tinyfactory/)**（手机也能看） · [English](README.en.md) · 中文
+[![test](https://github.com/ybkjs/tinyfactory/actions/workflows/test.yml/badge.svg)](https://github.com/ybkjs/tinyfactory/actions/workflows/test.yml)
+[![release](https://img.shields.io/github/v/release/ybkjs/tinyfactory)](https://github.com/ybkjs/tinyfactory/releases)
+[![node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](package.json)
+[![license](https://img.shields.io/github/license/ybkjs/tinyfactory)](LICENSE)
+
+**[在线演示](https://ybkjs.github.io/tinyfactory/)**（手机也能看） · [文档](docs/) · [更新日志](CHANGELOG.md) · [English](README.en.md) · 中文
 
 ![tinyfactory](docs/demo.gif)
 
@@ -111,6 +116,8 @@ ssh -N -L 4525:127.0.0.1:4520 you@your-server
 
 产线 id 在页面左侧列表里点开就能看到，规则是 `来源:名字`，比如 `codex:daily-news`、`systemd:backup`。
 
+完整说明见 [docs/config.md](docs/config.md)，完整示例见 [examples/config.example.json](examples/config.example.json)。
+
 ## 场景里有什么
 
 - **真实的时间和天气**：太阳按你所在城市的经纬度走，晚上路灯和窗户会亮；下雨下雪会同步到场景里（天气来自 [Open-Meteo](https://open-meteo.com/)）。右上角可以切城市，也可以预览傍晚、夜晚、雪夜。
@@ -138,50 +145,60 @@ ssh -N -L 4525:127.0.0.1:4520 you@your-server
 ## 命令行参数
 
 ```
---demo            演示工厂（包裹是模拟的）
+npx github:ybkjs/tinyfactory           扫描这台电脑，打开工厂
+npx github:ybkjs/tinyfactory --demo    演示工厂（包裹是模拟的）
+npx github:ybkjs/tinyfactory doctor    自检：每个来源找到了什么、没找到的原因
+
 --port <n>        端口，默认 4520
---host <addr>     默认 127.0.0.1
+--host <addr>     默认 127.0.0.1（对外开放必须配 --token）
 --city <name>     beijing、shanghai、shenzhen、hangzhou、london、newyork…
 --lang <zh|en>    界面语言
 --config <file>   默认 ~/.tinyfactory/config.json
 --interval <s>    多久扫一次，默认 10 秒
 --token <secret>  对外开放时用
 --no-open         不自动打开浏览器
+--verbose         打印数据源的报错
+--version         版本号
 ```
 
-页面参数：`?q=low|high`（画质）、`?fps=60`、`?tilt=1`（移轴虚化）、`?city=`、`?lang=`、`?weather=dusk|night|rain|snow|snow-night`。
+配置文件写错时，tinyfactory 会直接报出第几行第几列，不会悄悄忽略；拼错的字段名会提示「你是不是想写 xxx」。
+页面参数：`?q=auto|low|medium|high`（画质）、`?fps=60`、`?city=`、`?lang=`、`?weather=dusk|night|rain|snow|snow-night`。
+
+## 文档
+
+- [配置项完整说明](docs/config.md)：每个字段、产线 id 规则、运行计划写法、多台机器（英文）
+- [HTTP 接口](docs/api.md)：webhook 上报、`/api/state` 数据格式（英文）
+- [架构与新增数据源](docs/architecture.md)：怎么写一个新来源、各文件做什么（英文）
+- [部署示例](examples/)：服务器 systemd 常驻、Mac launchd 常驻、完整配置示例
 
 ## 性能
 
-默认按屏幕原生分辨率渲染，封顶每秒 30 帧，窗口不在前台时降到每秒 12 帧；卡的时候会自动降一档。8GB 内存的 MacBook 上实测流畅。老电脑可以用 `?q=low`。
+默认画质是 auto：开柔和阴影和移轴景深，帧率掉到每秒 24 帧以下就自动关掉，并在这台电脑上记住。封顶每秒 30 帧，窗口不在前台时降到 12 帧。8GB 内存的 MacBook 上实测流畅；老电脑可以用 `?q=low`。
 
-## 新增一个来源
+## 常见问题
 
-一个来源就是 `src/sources/` 下的一个文件，导出 `collect(ctx)`，返回厂区、agent、产线和运行记录：
+**打开是空的 / 少了某个工具的任务？** 运行 `npx github:ybkjs/tinyfactory doctor`，它会逐个说明每个来源找到了什么、没找到的原因。
 
-```js
-export const id = "my-tool";
-export async function collect(ctx) {
-  return {
-    factory: { id: "my-tool", name: "My tool", building: "studio", color: "#5b8def" },
-    agent: { id: "custom", kind: "custom" },
-    lines: [{ id: "my-tool:job", name: "Job", schedule: { type: "cron", value: "0 9 * * *" }, status: "scheduled", next: Date.now() + 3600e3 }],
-    runs: [{ id: "my-tool:job:1", line: "my-tool:job", at: Date.now(), ok: true }]
-  };
-}
-```
+**能看服务器上的任务吗？** 能。服务器上也跑一份（只监听本机、带 token），用 SSH 隧道接到笔记本上，见上文「多台机器汇总到一张图」。
 
-然后加到 `src/collect.mjs` 的 `SOURCES` 里。欢迎 PR：GitHub Actions、n8n、Cursor、Windows 任务计划……
+**会改动我的任务吗？会上传数据吗？** 不会。只读、只在本机，唯一的外部请求是天气。
 
-## 开发
+**详情卡里没有历史记录？** systemd 定时器、Codex、OpenClaw、Claude 后台会话会自动带出过去的运行；cron 和 launchd 没有运行日志，开着看板一段时间就会攒起来。用 webhook 上报的任务会一直记着。
+
+**想加一个工具（GitHub Actions、n8n……）？** 看[架构与新增数据源](docs/architecture.md)，一个文件就够；也可以[开一个 issue](https://github.com/ybkjs/tinyfactory/issues/new/choose) 告诉我们它的数据存在哪。
+
+## 参与贡献
 
 ```bash
 git clone https://github.com/ybkjs/tinyfactory && cd tinyfactory
 npm install
 npm run demo        # 演示模式
 npm test            # 测试
+npm run check       # 语法和清单检查
 npm run record      # 重新录 README 里的图（需要 Chrome 和 ffmpeg）
 ```
+
+欢迎 issue 和 PR，中文英文都可以：[贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · [安全问题](SECURITY.md)。
 
 ## 致谢
 

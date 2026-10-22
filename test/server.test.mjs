@@ -63,3 +63,22 @@ test("remote: another tinyfactory merged in, with prefixed ids, parcels and decl
   assert.equal(view.events[0].line, "remote:box:webhook:deploy");
   assert.equal(view.events[0].agent, "server");
 });
+
+test("token: /api needs it when set, the page itself doesn't", async () => {
+  const locked = await startServer({ collector, port: 0, host: "127.0.0.1", token: "s3cret", info: { demo: false, city: resolveCity("london"), lang: "en", interval: 10 }, log: () => {} });
+  const url = `http://127.0.0.1:${locked.address().port}`;
+  try {
+    assert.equal((await fetch(`${url}/api/state`)).status, 401);
+    assert.equal((await fetch(`${url}/api/state?token=nope`)).status, 401);
+    assert.equal((await fetch(`${url}/api/state?token=s3cret`)).status, 200);
+    assert.equal((await fetch(`${url}/api/state`, { headers: { authorization: "Bearer s3cret" } })).status, 200);
+    assert.equal((await fetch(`${url}/`)).status, 200);
+  } finally { locked.closeAllConnections(); locked.close(); }
+});
+
+test("webhook: oversized or empty reports are refused, form posts work", async () => {
+  assert.equal((await fetch(`${base}/api/event`, { method: "POST", body: JSON.stringify({ line: "x", msg: "a".repeat(40000) }) })).status, 413);
+  assert.equal((await fetch(`${base}/api/event`, { method: "POST", body: "line=form-post&status=done", headers: { "content-type": "application/x-www-form-urlencoded" } })).status, 200);
+  assert.equal((await fetch(`${base}/api/nothing`)).status, 404);
+  assert.equal((await fetch(`${base}/api/weather?lat=abc&lon=1`)).status, 400);
+});

@@ -7,7 +7,12 @@
 One command finds the Claude Code, Codex, OpenClaw, cron, launchd and systemd jobs on your machine.
 Every automation becomes a production line; every run becomes a parcel riding the belt to the agent doing the work.
 
-**[Live demo](https://ybkjs.github.io/tinyfactory/)** (works on phones) · English · [中文](README.md)
+[![test](https://github.com/ybkjs/tinyfactory/actions/workflows/test.yml/badge.svg)](https://github.com/ybkjs/tinyfactory/actions/workflows/test.yml)
+[![release](https://img.shields.io/github/v/release/ybkjs/tinyfactory)](https://github.com/ybkjs/tinyfactory/releases)
+[![node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](package.json)
+[![license](https://img.shields.io/github/license/ybkjs/tinyfactory)](LICENSE)
+
+**[Live demo](https://ybkjs.github.io/tinyfactory/)** (works on phones) · [Docs](docs/) · [Changelog](CHANGELOG.md) · English · [中文](README.md)
 
 ![tinyfactory](docs/demo.gif)
 
@@ -99,6 +104,8 @@ Line ids look like `source:name` (e.g. `codex:daily-news`, `systemd:backup`).
 `lines` puts jobs this machine can't see (a cloud server, a SaaS scheduler) on the map as "not connected":
 `{ "id": "backup", "name": "Nightly backup", "factory": "My shop", "agent": "system", "schedule": { "type": "cron", "value": "0 3 * * *" } }`
 
+Full reference: [docs/config.md](docs/config.md) · a complete example: [examples/config.example.json](examples/config.example.json).
+
 ## In the scene
 
 - **Real time and weather** for your city: the sun moves, lamps and windows light up at night, rain and snow follow the real sky ([Open-Meteo](https://open-meteo.com/)). Switch cities or preview dusk / night / snowy night from the top-right card.
@@ -123,27 +130,51 @@ Listens on `127.0.0.1` only, uploads nothing, no telemetry, never modifies your 
 ## CLI
 
 ```
---demo  --port <n>  --host <addr>  --city <name>  --lang <zh|en>
---config <file>  --interval <s>  --token <secret>  --no-open
+npx github:ybkjs/tinyfactory           scan this machine and open the factory
+npx github:ybkjs/tinyfactory --demo    sample factory with simulated runs
+npx github:ybkjs/tinyfactory doctor    what each source found here, and why not
+
+--port <n>  --host <addr>  --city <name>  --lang <zh|en>  --config <file>
+--interval <s>  --token <secret>  --no-open  --verbose  --version
 ```
 
-Page parameters: `?q=low|high`, `?fps=60`, `?tilt=1`, `?city=`, `?lang=`, `?weather=dusk|night|rain|snow|snow-night`.
+A config file with a mistake stops with its line and column instead of being ignored; misspelled keys get a
+"did you mean". Page parameters: `?q=auto|low|medium|high`, `?fps=60`, `?city=`, `?lang=`, `?weather=dusk|night|rain|snow|snow-night`.
+
+## Docs
+
+- [Configuration](docs/config.md): every key, line ids, schedules, several machines
+- [HTTP API](docs/api.md): reporting runs, the `/api/state` format
+- [Architecture and adding a source](docs/architecture.md)
+- [Examples](examples/): keep it running with systemd or launchd, a full config
 
 ## Performance
 
-Native resolution, capped at 30 fps, 12 fps when the window isn't focused, and it steps down automatically if your machine struggles. Smooth on an 8 GB MacBook; use `?q=low` on older machines.
+Quality is `auto` by default: soft ambient occlusion and tilt-shift, switched off for good on a machine that can't keep
+24 fps. Capped at 30 fps, 12 fps in a background window. Smooth on an 8 GB MacBook; use `?q=low` on older machines.
 
-## Add a source
+## FAQ
 
-A source is one file in `src/sources/` exporting `collect(ctx)` that returns `{ factory, agent, lines, runs }` — see the Chinese README or any existing source. PRs welcome: GitHub Actions, n8n, Cursor, Windows Task Scheduler…
+**It's empty, or a tool's jobs are missing.** Run `npx github:ybkjs/tinyfactory doctor`: it says what each source found and why not.
 
-## Develop
+**Can it show my server's jobs?** Yes: run it there too (localhost, with a token) and bring it over an SSH tunnel, see above.
+
+**Does it change my jobs or send data anywhere?** No. Read-only and local; the only outbound request is the weather.
+
+**A detail card has no history.** systemd timers, Codex, OpenClaw and Claude Code sessions bring their past runs; cron
+and launchd keep no run log, so history builds up while the dashboard runs. Webhook lines keep theirs.
+
+**I want another tool on the map.** See [adding a source](docs/architecture.md#sources), or [open an issue](https://github.com/ybkjs/tinyfactory/issues/new/choose) saying where it keeps its jobs.
+
+## Contributing
 
 ```bash
 git clone https://github.com/ybkjs/tinyfactory && cd tinyfactory
 npm install && npm run demo
-npm test
+npm test && npm run check
 ```
+
+Issues and pull requests welcome, in English or Chinese: [contributing](CONTRIBUTING.md) · [code of conduct](CODE_OF_CONDUCT.md) · [security](SECURITY.md).
 
 ## Credits
 

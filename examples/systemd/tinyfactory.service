@@ -1,0 +1,23 @@
+# Keep tinyfactory running on a Linux server, listening on localhost only (reach it with an SSH tunnel).
+# 1. Install: sudo npm install -g github:ybkjs/tinyfactory   (or clone it to /opt/tinyfactory)
+# 2. Put a token in /etc/tinyfactory.json: { "token": "some-long-random-string" }
+# 3. sudo cp tinyfactory.service /etc/systemd/system/ && sudo systemctl enable --now tinyfactory
+# It runs as root to read every unit's journal; it only reads. ProtectSystem keeps it from writing anywhere but its state dir.
+[Unit]
+Description=tinyfactory (read-only automation monitor, localhost only)
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/env tinyfactory --config /etc/tinyfactory.json --host 127.0.0.1 --port 4520 --no-open
+Environment=HOME=/var/lib/tinyfactory
+StateDirectory=tinyfactory
+Restart=on-failure
+RestartSec=5
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+NoNewPrivileges=true
+MemoryMax=150M
+
+[Install]
+WantedBy=multi-user.target

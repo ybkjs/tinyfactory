@@ -13,12 +13,16 @@
     "README.md",
     "README.en.md",
     "CHANGELOG.md",
+    "docs/*.md",
+    "examples",
     "LICENSE"
   ],
   "scripts": {
     "start": "node bin/tinyfactory.mjs",
     "demo": "node bin/tinyfactory.mjs --demo",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test",
+    "check": "node scripts/check.mjs",
+    "coverage": "node --test --experimental-test-coverage",
     "record": "node scripts/record.mjs"
   },
   "engines": {
