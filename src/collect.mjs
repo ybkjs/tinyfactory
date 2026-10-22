@@ -5,11 +5,12 @@ import * as cron from "./sources/cron.mjs";
 import * as declared from "./sources/declared.mjs";
 import * as launchd from "./sources/launchd.mjs";
 import * as openclaw from "./sources/openclaw.mjs";
+import * as remote from "./sources/remote.mjs";
 import * as systemd from "./sources/systemd.mjs";
 import * as webhook from "./sources/webhook.mjs";
 import { globMatch } from "./util.mjs";
 
-export const SOURCES = [claude, codex, openclaw, cron, launchd, systemd, webhook, declared];
+export const SOURCES = [claude, codex, openclaw, cron, launchd, systemd, webhook, remote, declared];
 const HIGH_FREQUENCY = 600; // lines that run every ≤10 min don't count toward "done today"
 // Defaults for agents a line can point at without anyone describing them (e.g. a webhook saying agent: "deepseek")
 export const KNOWN_AGENTS = {
@@ -48,10 +49,12 @@ export function assemble(groups, config = {}) {
   const hidden = (id) => (config.hide || []).some((p) => globMatch(p, id));
   const custom = (config.factories || []).map((f) => ({ id: f.id || f.name, name: f.name, color: f.color || "#c9a227", building: f.building || "shop", match: [...(f.match || []), ...(config.lines || []).filter((l) => l.factory === f.name).map((l) => `declared:${l.id}`)], lines: [] }));
   const factories = [];
+  // A declared line steps aside once the live line it stands in for shows up
+  const liveIds = new Set(groups.flatMap((g) => g.lines.map((l) => l.id)));
   for (const g of groups) {
     const factory = { ...g.factory, lines: [] };
     for (const line of g.lines) {
-      if (hidden(line.id)) continue;
+      if (hidden(line.id) || (line.live && liveIds.has(line.live))) continue;
       const l = { ...line, agent: line.agent || g.agent?.id || "custom" };
       if (config.rename?.[l.id]) l.name = config.rename[l.id];
       for (const [pattern, agent] of Object.entries(config.assign || {})) if (globMatch(pattern, l.id)) l.agent = agent;

@@ -1,6 +1,7 @@
 // Lines you declare in the config for things tinyfactory can't see from this machine (a cloud server, a SaaS job).
 // They show up on the map as "not connected" until a live source reports the same id.
 //   "lines": [{ "id": "shop-health", "name": "Uptime check", "factory": "My shop", "agent": "server", "schedule": { "type": "interval", "value": 60 } }]
+// Add "live": "<line id>" and the declared line disappears as soon as that live line exists (e.g. the first webhook report).
 export const id = "declared";
 
 export async function collect(ctx) {
@@ -24,7 +25,8 @@ export async function collect(ctx) {
         agent: l.agent || "custom",
         schedule: l.schedule || { type: "manual" },
         status: "idle",
-        note: { key: "notConnected" }
+        note: { key: "notConnected" },
+        ...(l.live ? { live: l.live } : {})
       })),
       runs: []
     };

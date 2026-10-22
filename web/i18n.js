@@ -15,7 +15,7 @@ const T = {
     week: ["日", "一", "二", "三", "四", "五", "六"], tomorrow: "明天", next: "下次",
     notes: {
       waiting: (n) => `${n} 个在等你回复`, working: (n) => `${n} 个在忙`, unread: (n) => `${n} 期没看`, stalled: () => "停摆了", failing: (n) => `连续失败 ${n} 次`,
-      lastFailed: () => "上次失败", exitCode: (_, x) => `退出码 ${x.code}`, notLoaded: () => "没加载", failed: (_, x) => `失败（${x.result}）`, down: () => "没在运行", notConnected: () => "未接入"
+      lastFailed: () => "上次失败", exitCode: (_, x) => `退出码 ${x.code}`, notLoaded: () => "没加载", failed: (_, x) => `失败（${x.result}）`, down: () => "没在运行", notConnected: () => "未接入", remoteDown: (_, x) => `连不上 ${x.name}`
     },
     weatherText: { clear: "晴", partly: "多云", cloudy: "阴", fog: "雾", rain: "雨", storm: "雷雨", snow: "雪" },
     shareTitle: "我的 AI 微缩工厂"
@@ -31,7 +31,7 @@ const T = {
     week: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], tomorrow: "tomorrow", next: "next",
     notes: {
       waiting: (n) => `${n} waiting for you`, working: (n) => `${n} working`, unread: (n) => `${n} unread`, stalled: () => "stalled", failing: (n) => `failed ${n}× in a row`,
-      lastFailed: () => "last run failed", exitCode: (_, x) => `exit code ${x.code}`, notLoaded: () => "not loaded", failed: (_, x) => `failed (${x.result})`, down: () => "not running", notConnected: () => "not connected"
+      lastFailed: () => "last run failed", exitCode: (_, x) => `exit code ${x.code}`, notLoaded: () => "not loaded", failed: (_, x) => `failed (${x.result})`, down: () => "not running", notConnected: () => "not connected", remoteDown: (_, x) => `${x.name} unreachable`
     },
     weatherText: { clear: "Clear", partly: "Partly cloudy", cloudy: "Overcast", fog: "Fog", rain: "Rain", storm: "Storm", snow: "Snow" },
     shareTitle: "My AI miniature factory"

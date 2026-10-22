@@ -36,3 +36,27 @@ test("webhook → state → parcel event", async () => {
   assert.equal(state.events.length, 1);
   assert.equal((await fetch(`${base}/api/event`, { method: "POST", body: "{}" })).status, 400);
 });
+
+test("remote: another tinyfactory merged in, with prefixed ids, parcels and declared stand-ins", async () => {
+  const remote = await import("../src/sources/remote.mjs");
+  const declared = await import("../src/sources/declared.mjs");
+  const config = {
+    remote: [{ name: "box", url: base }],
+    lines: [{ id: "deploy", name: "Deploy (declared)", factory: "Ops", live: "remote:box:webhook:deploy" }, { id: "later", name: "Not yet", factory: "Ops", agent: "server" }],
+    assign: { "remote:box:*": "server" },
+    agents: { server: { kind: "system", name: "Server" } }
+  };
+  const mac = createCollector({ config, sources: [remote, declared] });
+  let view = await mac.refresh();
+  const names = view.factories.flatMap((f) => f.lines.map((l) => `${l.id}=${l.status}`));
+  assert.ok(names.includes("remote:box:webhook:deploy=idle"));
+  assert.ok(names.includes("declared:later=idle"));
+  assert.ok(!names.some((n) => n.startsWith("declared:deploy")));
+  assert.deepEqual(view.agents.map((a) => a.id), ["server"]);
+  await fetch(`${base}/api/event`, { method: "POST", body: JSON.stringify({ line: "deploy", factory: "Ops", status: "done" }) });
+  await collector.refresh();
+  view = await mac.refresh();
+  assert.equal(view.events.length, 1);
+  assert.equal(view.events[0].line, "remote:box:webhook:deploy");
+  assert.equal(view.events[0].agent, "server");
+});
