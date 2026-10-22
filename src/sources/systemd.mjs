@@ -6,9 +6,18 @@ export const id = "systemd";
 const HOUSEKEEPING = /^(systemd-|apt-|dpkg-|man-db|logrotate|fstrim|e2scrub|motd-news|dnf-|fwupd|snapd|update-notifier|plocate|mlocate|unbound-|raid-check|sysstat|ua-|phpsessionclean|anacron|atop|pmlogger|pmie|sa-update|mdcheck|apport|exim|clamav|certbot)/;
 const journalCache = new Map();
 
-// "key=value" blocks separated by blank lines → objects
+// "key=value" blocks separated by blank lines → objects. A key can repeat (one TimersMonotonic line per trigger), so values are joined.
 export function parseShow(text) {
-  return text.trim().split(/\n\s*\n/).map((block) => Object.fromEntries(block.split("\n").filter((l) => l.includes("=")).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)])));
+  return text.trim().split(/\n\s*\n/).map((block) => {
+    const out = {};
+    for (const line of block.split("\n")) {
+      const i = line.indexOf("=");
+      if (i < 0) continue;
+      const key = line.slice(0, i), value = line.slice(i + 1);
+      out[key] = key in out ? `${out[key]} ${value}` : value;
+    }
+    return out;
+  });
 }
 
 // "@1792640000" (--timestamp=unix) or "Thu 2026-10-22 11:15:39 CST" → ms
