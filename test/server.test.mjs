@@ -15,11 +15,14 @@ const collector = createCollector({ sources: [webhook] });
 await collector.refresh();
 const server = await startServer({ collector, port: 0, host: "127.0.0.1", token: "", info: { demo: false, city: resolveCity("london"), lang: "en", interval: 10 }, log: () => {} });
 const base = `http://127.0.0.1:${server.address().port}`;
-after(() => { server.close(); rmSync(home, { recursive: true, force: true }); });
+// closeAllConnections: a keep-alive socket left open by fetch would hold close() (and the whole test run) forever
+after(() => { server.closeAllConnections(); server.close(); rmSync(home, { recursive: true, force: true }); });
 
 test("serves the page and three.js", async () => {
   assert.match(await (await fetch(`${base}/`)).text(), /tinyfactory/);
-  assert.equal((await fetch(`${base}/vendor/three/build/three.module.js`)).status, 200);
+  const three = await fetch(`${base}/vendor/three/build/three.module.js`);
+  assert.equal(three.status, 200);
+  await three.arrayBuffer();
   assert.equal((await fetch(`${base}/../package.json`)).status, 404);
 });
 
