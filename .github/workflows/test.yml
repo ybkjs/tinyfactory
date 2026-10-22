@@ -1,5 +1,9 @@
 name: test
-on: [push, pull_request]
+# main and pull requests (a pull request's branch isn't tested twice)
+on:
+  push:
+    branches: [main]
+  pull_request:
 jobs:
   test:
     strategy:
