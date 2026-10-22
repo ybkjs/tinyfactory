@@ -454,6 +454,7 @@ function dispatch(lineId) {
   const out = world.outBelts.get(agentId);
   if (!line || !out) return;
   machineAnim.set(lineId, 2.5);
+  sendWorker(line.machine, 2.6);
   parcels.send([line.belt, out], {
     onArrive: () => {
       const a = agentAnim.get(agentId);
@@ -474,6 +475,78 @@ function stackBox(agentId) {
 }
 
 const LAMP = { running: "#4fd16a", live: "#4fd16a", queued: "#5b86ff", warn: "#ff6a3d", idle: "#9aa0a6", scheduled: "#c7cdd4", paused: "#7d838a" };
+
+/* ---------- People: yard crews tend the machines, strollers on the paths, birds now and then ---------- */
+
+const WORK_SPOT = 1.25;   // a worker stands this far on the yard side of the machine they tend (clear of its body)
+const lerpAngle = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
+// Someone from that yard walks over (the nearest free worker), or the one already there stays longer
+function sendWorker(machine, seconds) {
+  const crew = world.workers.filter((w) => w.factory === machine.parent);
+  const there = crew.find((w) => w.target === machine);
+  if (there) { there.work = Math.max(there.work, seconds); return; }
+  const free = crew.filter((w) => !w.target).sort((a, b) => Math.abs(a.group.position.z - machine.position.z) - Math.abs(b.group.position.z - machine.position.z))[0];
+  if (free) { free.target = machine; free.work = seconds; }
+}
+function pose(g, swing, reach = 0) {
+  const { legs, arms } = g.userData;
+  legs[0].rotation.x = swing; legs[1].rotation.x = -swing;
+  arms[0].rotation.x = -swing * 0.8 + reach; arms[1].rotation.x = swing * 0.8 + reach;
+}
+const goal = new THREE.Vector3(), step = new THREE.Vector3();
+function updatePeople(dt, t, day) {
+  // A line that runs continuously keeps a worker beside it
+  for (const [id, entry] of world.lines) if (lineById.get(id)?.status === "running") sendWorker(entry.machine, 1.5);
+  for (const w of world.workers) {
+    const g = w.group;
+    if (w.target) goal.set(w.target.position.x - WORK_SPOT, 0.3, w.target.position.z);
+    else goal.set(w.home.x, 0.3, w.home.z + (w.wander || 0));
+    step.subVectors(goal, g.position).setY(0);
+    const dist = step.length();
+    if (dist > 0.04) {
+      g.position.addScaledVector(step.normalize(), Math.min(dist, dt * 1.7));
+      g.rotation.y = lerpAngle(g.rotation.y, Math.atan2(step.x, step.z), Math.min(1, dt * 10));
+      w.step += dt * 10;
+      g.position.y = 0.3 + Math.abs(Math.sin(w.step)) * 0.03;
+      pose(g, Math.sin(w.step) * 0.55);
+    } else if (w.target) {
+      // At the machine: face it and work the panel
+      g.rotation.y = lerpAngle(g.rotation.y, Math.PI / 2, Math.min(1, dt * 8));
+      g.position.y = 0.3;
+      const tap = Math.sin(t * 11 + w.step) * 0.22;
+      const { arms, legs } = g.userData;
+      legs[0].rotation.x = legs[1].rotation.x = 0;
+      arms[0].rotation.x = -1.15 + tap; arms[1].rotation.x = -1.15 - tap;
+      w.work -= dt;
+      if (w.work <= 0) w.target = null;
+    } else {
+      // Idle: stand facing the machines, now and then shift a step along the lane
+      g.rotation.y = lerpAngle(g.rotation.y, Math.PI / 2 + Math.sin(t * 0.4 + w.step) * 0.5, Math.min(1, dt * 3));
+      g.position.y = 0.3;
+      pose(g, 0, 0.05);
+      w.idle -= dt;
+      if (w.idle <= 0) { w.idle = 4 + Math.random() * 7; w.wander = (Math.random() - 0.5) * 1.6; }
+    }
+  }
+  for (const p of world.walkers) {
+    const len = p.curve.getLength();
+    p.u += (p.dir * p.speed * dt) / len;
+    if (p.u > p.span[1] || p.u < p.span[0]) { p.dir *= -1; p.u = THREE.MathUtils.clamp(p.u, p.span[0], p.span[1]); }
+    const at = p.curve.getPointAt(p.u), tan = p.curve.getTangentAt(p.u);
+    // Keep to the right-hand side of the path
+    p.group.position.set(at.x - tan.z * p.dir * 0.45, Math.abs(Math.sin(p.step)) * 0.025, at.z + tan.x * p.dir * 0.45);
+    p.group.rotation.y = Math.atan2(tan.x * p.dir, tan.z * p.dir);
+    p.step += dt * 8;
+    pose(p.group, Math.sin(p.step) * 0.5);
+  }
+  // Birds: every 45 s a flock crosses the sky in daylight, on a different line each time
+  const k = (t % 45) / 45, pass = Math.floor(t / 45);
+  world.birds.visible = day > 0.35 && k < 0.4;
+  if (world.birds.visible) {
+    world.birds.position.set(rig.target.x - 70 + (k / 0.4) * 140, 11, rig.target.z + Math.sin(pass * 2.3) * 14 - 4);
+    for (const bird of world.birds.children) for (const wing of bird.userData.wings) wing.rotation.x = -wing.userData.side * Math.sin(t * 11 + bird.position.x) * 0.7;
+  }
+}
 
 function animate(dt, t) {
   scrollBelts(dt, 1);
@@ -796,6 +869,7 @@ function frame() {
   const { now, day } = applyLighting(dt);
   updateParticles(dt, t);
   animate(dt, t);
+  updatePeople(dt, t, day);
   updateLabels();
   if (t - lastClock > 1) {
     lastClock = t;

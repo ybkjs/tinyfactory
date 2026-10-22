@@ -1,5 +1,6 @@
 // Buildings and characters: factories (a building plus one machine per line), the hub, agent platforms and characters
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { nameOf } from "./i18n.js";
 import { boxTexture, brickTexture, canvasTexture, gableGeometry, labelTexture, mat, mesh, radialTileTexture, range, rbox, shingleTexture, tileTexture } from "./util.js";
 
@@ -618,6 +619,55 @@ export function agentPlatform(def) {
   g.add(bench(-def.radius * 0.2, def.radius - 0.75, Math.PI));
   for (const o of [character, ring, pallet]) o.userData.dynamic = true;
   g.userData = { character, ring, pallet, def, baseY: 0.62, labelAt: new THREE.Vector3(0, 4.3, 0) };
+  return g;
+}
+
+/* ---------- People: workers in the yards (hard hat in the factory colour) and strollers on the paths ---------- */
+
+const SKIN = ["#f2c9a5", "#e0ac83", "#c68b62", "#8d5a3b", "#f5d6bd"];
+const SHIRTS = ["#f4f1ea", "#7fa6d9", "#9aa5b1", "#3d4f6b", "#e7d3b3", "#c95b4a"];
+const TROUSERS = ["#3b4252", "#4a5568", "#2f3a4f", "#6b5a4a"];
+// Each person is five meshes (body with head and hat, two legs, two arms) coloured per vertex, so a crowd stays cheap to draw.
+// Faces +z; userData.legs / arms are pivots at hip and shoulder so main.js can swing them.
+const personMat = mat("#ffffff", { rough: 0.72, vertexColors: true });
+function paint(geometry, color, { x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1 } = {}) {
+  const g = geometry.clone();
+  g.scale(sx, sy, sz);
+  g.translate(x, y, z);
+  const c = new THREE.Color(color), n = g.attributes.position.count, colors = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) colors.set([c.r, c.g, c.b], i * 3);
+  g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return g.index ? g.toNonIndexed() : g;
+}
+const part = (pieces) => mesh(mergeGeometries(pieces, false), personMat);
+export function person({ hat = null, rand: r = Math.random } = {}) {
+  const pickR = (list) => list[Math.floor(r() * list.length)];
+  const g = new THREE.Group();
+  const trousers = pickR(TROUSERS), shirt = pickR(SHIRTS), skin = pickR(SKIN);
+  const legs = [-1, 1].map((s) => {
+    const hip = new THREE.Group();
+    hip.position.set(s * 0.075, 0.34, 0);
+    hip.add(part([paint(new THREE.CapsuleGeometry(0.055, 0.2, 3, 8), trousers, { y: -0.16 }), paint(rbox(0.12, 0.06, 0.17, 0.03), "#2b2b2b", { y: -0.31, z: 0.03 })]));
+    g.add(hip);
+    return hip;
+  });
+  const arms = [-1, 1].map((s) => {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(s * 0.2, 0.8, 0);
+    shoulder.add(part([paint(new THREE.CapsuleGeometry(0.045, 0.2, 3, 8), shirt, { y: -0.13 }), paint(new THREE.SphereGeometry(0.05, 8, 6), skin, { y: -0.27 })]));
+    g.add(shoulder);
+    return shoulder;
+  });
+  const body = [
+    paint(new THREE.CapsuleGeometry(0.15, 0.22, 4, 12), shirt, { y: 0.6 }),
+    paint(new THREE.SphereGeometry(0.14, 16, 12), skin, { y: 0.98 }),
+    ...[-0.05, 0.05].map((x) => paint(new THREE.SphereGeometry(0.022, 8, 6), "#1d1d1f", { x, y: 0.99, z: 0.125 }))
+  ];
+  if (hat) body.push(paint(new THREE.SphereGeometry(0.155, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), hat, { y: 1.0 }), paint(new THREE.CylinderGeometry(0.19, 0.19, 0.025, 18), hat, { y: 1.0, z: 0.02 }));
+  else body.push(paint(new THREE.SphereGeometry(0.15, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.2), pickR(["#2b2118", "#5a3a22", "#1d1d1f", "#8a6a3a"]), { y: 1.0 }));
+  g.add(part(body));
+  g.userData = { legs, arms };
+  g.userData.dynamic = true;
   return g;
 }
 

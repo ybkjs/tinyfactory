@@ -2,10 +2,12 @@
 import * as THREE from "three";
 import { SimplexNoise } from "three/addons/math/SimplexNoise.js";
 import { belt, corridor } from "./flow.js";
-import { agentPlatform, bench, factory, hub, lampPost } from "./structures.js";
+import { agentPlatform, bench, factory, hub, lampPost, person } from "./structures.js";
 import { grassTexture, gravelTexture, mat, mesh, pick, rand, range, rippleNormals, snowy } from "./util.js";
 
 const PORT_R = 4.25;            // where belts meet the hub, just outside its wall
+
+const PEOPLE = 1.3;   // people are drawn a little large, as in a model railway, so they read from the default view
 
 export function buildWorld(scene, layout) {
   const HUB = layout.hub;
@@ -144,7 +146,56 @@ export function buildWorld(scene, layout) {
   plantBorders(scene, pathCurves, blocked, layout);
   scatterGrass(scene, blocked);
 
-  return { ground, water, hub: hubGroup, factories, agents, lines, outBelts };
+  // Crew: two or three workers per yard, living in the lane in front of the machines (clear of the props)
+  const workers = [];
+  for (const f of factories) {
+    const { def, machines } = f.userData;
+    const lane = def.w / 2 - 2.6, n = Math.min(3, Math.max(2, Math.ceil(machines.length / 2)));
+    for (let i = 0; i < n; i++) {
+      const w = person({ hat: def.color, rand });
+      w.scale.setScalar(PEOPLE);
+      const z = -def.d / 2 + 1.4 + ((i + 0.5) * (def.d - 2.8)) / n;
+      w.position.set(lane, 0.3, z);
+      w.rotation.y = Math.PI / 2;
+      f.add(w);
+      workers.push({ group: w, factory: f, home: new THREE.Vector3(lane, 0.3, z), target: null, work: 0, step: rand() * 6, idle: rand() * 6 });
+    }
+  }
+  // Strollers on the paths, keeping to one side
+  const walkers = [];
+  for (let i = 0; i < 5; i++) {
+    const g = person({ rand });
+    g.scale.setScalar(PEOPLE);
+    scene.add(g);
+    // Only the stretch of each path near the campus (the north path ends at the hub, the south one starts there)
+    const span = i % 2 === 0 ? [0.42, 0.97] : [0.03, 0.58];
+    walkers.push({ group: g, curve: pathCurves[i % 2], span, u: range(span[0], span[1]), dir: rand() < 0.5 ? 1 : -1, speed: range(0.55, 0.8), step: rand() * 6 });
+  }
+  // A small flock of gulls that crosses the sky now and then: a slim body and two swept-back wings, seen from above as a V
+  const birds = new THREE.Group();
+  const wingShape = new THREE.Shape();
+  wingShape.moveTo(0.12, 0);
+  wingShape.lineTo(-0.16, 0.62);
+  wingShape.lineTo(-0.3, 0.6);
+  wingShape.lineTo(-0.14, 0);
+  const wingGeo = new THREE.ShapeGeometry(wingShape);
+  wingGeo.rotateX(Math.PI / 2);   // lie flat, spanning toward +z; the flock flies along +x
+  const gull = new THREE.MeshStandardMaterial({ color: "#f4f6f8", roughness: 0.8, side: THREE.DoubleSide });
+  const bodyGeo = new THREE.SphereGeometry(0.1, 10, 8);
+  bodyGeo.scale(2.4, 0.8, 0.9);
+  for (let i = 0; i < 5; i++) {
+    const bird = new THREE.Group();
+    bird.add(new THREE.Mesh(bodyGeo, gull));
+    const wings = [-1, 1].map((side) => { const w = new THREE.Mesh(wingGeo, gull); w.scale.z = side; w.userData.side = side; bird.add(w); return w; });
+    bird.position.set(-Math.abs(i - 2) * 0.9, (i % 2) * 0.4, (i - 2) * 0.8);
+    bird.userData.wings = wings;
+    birds.add(bird);
+  }
+  birds.scale.setScalar(2.6);
+  birds.visible = false;
+  scene.add(birds);
+
+  return { ground, water, hub: hubGroup, factories, agents, lines, outBelts, workers, walkers, birds };
 }
 
 function flatRibbon(curve, width, samples) {
