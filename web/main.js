@@ -235,7 +235,7 @@ if (WANT_POST) {
   };
 }
 const tiltShader = (axis) => ({
-  uniforms: { tDiffuse: { value: null }, step: { value: new THREE.Vector2() }, focus: { value: 0.52 }, band: { value: 0.16 }, amount: { value: 1 } },
+  uniforms: { tDiffuse: { value: null }, step: { value: new THREE.Vector2() }, focus: { value: 0.5 }, band: { value: 0.22 }, amount: { value: 1 } },
   vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
   fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 step; uniform float focus; uniform float band; uniform float amount; varying vec2 vUv;
     void main(){

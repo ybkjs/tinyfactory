@@ -143,9 +143,9 @@ export function radialTileTexture(base = "#e3e1dc", { rings = 9, grout = "#bdbab
 // Belt surface: dark with cross stripes (scrolling the offset makes it move)
 export function beltTexture() {
   return canvasTexture(128, (ctx, s) => {
-    ctx.fillStyle = "#3d4250";
+    ctx.fillStyle = "#3a4152";
     ctx.fillRect(0, 0, s, s);
-    ctx.fillStyle = "#4b5161";
+    ctx.fillStyle = "#525a6d";
     for (let i = 0; i < 4; i++) ctx.fillRect(0, i * (s / 4), s, s / 10);
   });
 }

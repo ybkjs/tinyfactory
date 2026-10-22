@@ -36,7 +36,7 @@ export function createUI({ onTool, cities }) {
     <div class="card panel" id="panel"></div>
     <div class="labels" id="labels"></div>
     <div class="toolbar">
-      ${tools.map(([i, k, a]) => `<button data-act="${a}" title="${t(k)}" aria-label="${t(k)}"${a === "in" || a === "out" ? ' class="wide-only"' : ""}>${icon(i)}<span>${t(k)}</span></button>`).join("")}
+      ${tools.map(([i, k, a]) => `<button data-act="${a}" title="${t(k)}" aria-label="${t(k)}" class="${a === "in" || a === "out" ? "wide-only" : ""}${a === "out" || a === "weather" ? " group-end" : ""}">${icon(i)}<span>${t(k)}</span></button>`).join("")}
     </div>
     <div class="weather-menu" id="weather-menu">
       <div class="menu-title">${t("city")}</div>

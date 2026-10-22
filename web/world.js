@@ -5,7 +5,7 @@ import { belt, corridor } from "./flow.js";
 import { agentPlatform, bench, factory, hub, lampPost } from "./structures.js";
 import { grassTexture, gravelTexture, mat, mesh, pick, rand, range, rippleNormals, snowy } from "./util.js";
 
-const PORT_R = 3.9;
+const PORT_R = 4.25;            // where belts meet the hub, just outside its wall
 
 export function buildWorld(scene, layout) {
   const HUB = layout.hub;
@@ -50,7 +50,8 @@ export function buildWorld(scene, layout) {
   for (const s of starts) if (s.angle < 0) s.angle += Math.PI * 2;
   starts.sort((a, b) => a.angle - b.angle);
   // Ports fan out around the left side of the hub; many lines squeeze closer together
-  const spread = starts.length > 1 ? Math.min(0.15, 2.6 / (starts.length - 1)) : 0;
+  // A fixed gap between neighbouring belts (wider than a belt), so more lines just make a wider fan
+  const spread = starts.length > 1 ? Math.min(0.98 / PORT_R, 2.7 / (starts.length - 1)) : 0;
   const mid = starts.length ? starts.reduce((sum, s) => sum + s.angle, 0) / starts.length : Math.PI;
   const lines = new Map();
   starts.forEach((s, i) => {
@@ -82,12 +83,21 @@ export function buildWorld(scene, layout) {
   ];
   const gravel = gravelTexture();
   const pathCurves = [];
+  const kerb = snowy(new THREE.MeshStandardMaterial({ color: "#ebe6da", roughness: 0.9 }));
   for (const pts of paths) {
     const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0.03, z)));
     pathCurves.push(curve);
     const geometry = flatRibbon(curve, 2.3, 120);
     const material = snowy(new THREE.MeshStandardMaterial({ map: gravel, roughness: 1 }));
     scene.add(mesh(geometry, material, { cast: false }));
+    // Pale stone kerbs along both edges
+    for (const side of [-1, 1]) {
+      const edge = new THREE.CatmullRomCurve3(Array.from({ length: 81 }, (_, i) => {
+        const t = i / 80, p = curve.getPointAt(t), tan = curve.getTangentAt(t);
+        return new THREE.Vector3(p.x - tan.z * side * 1.2, 0.07, p.z + tan.x * side * 1.2);
+      }));
+      scene.add(mesh(flatRibbon(edge, 0.16, 120), kerb, { cast: false }));
+    }
     zones.corridors.push(corridor(curve, 3.2, 60));
   }
 
@@ -145,7 +155,7 @@ function flatRibbon(curve, width, samples) {
     const side = new THREE.Vector3().crossVectors(up, curve.getTangentAt(t)).normalize().multiplyScalar(width / 2);
     positions.push(p.x - side.x, p.y, p.z - side.z, p.x + side.x, p.y, p.z + side.z);
     uvs.push(0, (t * length) / width, 1, (t * length) / width);
-    if (i < samples) { const k = i * 2; indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    if (i < samples) { const k = i * 2; indices.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }   // wound to face up
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));

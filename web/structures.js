@@ -277,9 +277,12 @@ export function hub(def) {
   g.add(mesh(new THREE.CylinderGeometry(3.6, 3.7, 1.9, 48), mat("#f3f2ee"), { y: 1.27 }));
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI * 2;
-    const w = mesh(rbox(0.55, 1.0, 0.12, 0.08), windowMaterial, { x: Math.sin(a) * 3.66, y: 1.2, z: Math.cos(a) * 3.66, ry: a, cast: false });
-    g.add(w);
+    g.add(mesh(rbox(0.72, 1.17, 0.1, 0.08), trim, { x: Math.sin(a) * 3.63, y: 1.22, z: Math.cos(a) * 3.63, ry: a, cast: false }));
+    g.add(mesh(rbox(0.55, 1.0, 0.12, 0.08), windowMaterial, { x: Math.sin(a) * 3.66, y: 1.2, z: Math.cos(a) * 3.66, ry: a, cast: false }));
+    g.add(mesh(rbox(0.8, 0.07, 0.18, 0.02), trim, { x: Math.sin(a) * 3.72, y: 0.66, z: Math.cos(a) * 3.72, ry: a }));
   }
+  // Plinth around the foot of the wall
+  g.add(mesh(new THREE.CylinderGeometry(3.78, 3.82, 0.3, 64), mat("#dcd7cd"), { y: 0.47 }));
   g.add(mesh(new THREE.TorusGeometry(3.62, 0.13, 8, 64), mat("#e2dfd8"), { y: 2.22 }).rotateX(Math.PI / 2));
   // Turntable with parcels, visible through the glass
   const turntable = new THREE.Group();
@@ -309,12 +312,20 @@ export function hub(def) {
   g.add(mesh(new THREE.CylinderGeometry(0.16, 0.24, 3.6, 12), mat("#f1efea"), { y: 3.9 }));
   const beacon = mesh(new THREE.SphereGeometry(0.36, 20, 16), new THREE.MeshStandardMaterial({ color: "#ff8a3d", emissive: "#ff6a1a", emissiveIntensity: 0.8, roughness: 0.3 }), { y: 5.85 });
   g.add(beacon);
-  // Four doors
+  // Four doors, each under a little canopy on two posts
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    g.add(mesh(rbox(1.1, 1.3, 0.5, 0.1), mat("#d9d5cc"), { x: Math.sin(a) * 3.75, y: 0.95, z: Math.cos(a) * 3.75, ry: a }));
-    g.add(mesh(rbox(0.7, 1.0, 0.1, 0.06), mat("#4a5a70"), { x: Math.sin(a) * 4.0, y: 0.82, z: Math.cos(a) * 4.0, ry: a, cast: false }));
+    const at = (r, y) => ({ x: Math.sin(a) * r, y, z: Math.cos(a) * r, ry: a });
+    g.add(mesh(rbox(1.1, 1.3, 0.5, 0.1), mat("#d9d5cc"), at(3.75, 0.95)));
+    g.add(mesh(rbox(0.7, 1.0, 0.1, 0.06), mat("#4a5a70"), { ...at(4.0, 0.82), cast: false }));
+    g.add(mesh(rbox(1.6, 0.09, 0.95, 0.04), trim, at(4.2, 1.72)));
+    for (const s of [-1, 1]) {
+      const px = Math.sin(a) * 4.55 + Math.cos(a) * 0.68 * s, pz = Math.cos(a) * 4.55 - Math.sin(a) * 0.68 * s;
+      g.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.4, 6), mat("#c7ccd2", { metal: 0.4 }), { x: px, y: 1.02, z: pz }));
+    }
   }
+  // A ring of lights at the foot of the dome, lit at night with the lamps
+  g.add(mesh(new THREE.TorusGeometry(3.6, 0.045, 6, 96), lampMaterial, { y: 2.36, cast: false }).rotateX(Math.PI / 2));
   turntable.userData.dynamic = true;
   beacon.userData.dynamic = true;
   g.userData = { turntable, beacon, labelAt: new THREE.Vector3(0, 6.8, 0) };
@@ -335,10 +346,18 @@ function critter() {
   }
   const eye = mat("#1d1d1f", { rough: 0.4, snow: 0 });
   for (const x of [-0.42, 0.42]) g.add(mesh(new THREE.BoxGeometry(0.2, 0.3, 0.05), eye, { x, y: 1.32, z: 0.69, cast: false }));
-  const gem = mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshStandardMaterial({ color: "#ffe2c4", emissive: "#ffb27a", emissiveIntensity: 0.8, roughness: 0.3, flatShading: true }), { y: 3.0, cast: false });
-  gem.scale.y = 1.4;
-  g.add(gem);
-  g.userData.spin = gem;
+  // A spark floating overhead: eight rays around a bright core, turning slowly
+  const spark = new THREE.Group();
+  const glow = new THREE.MeshStandardMaterial({ color: "#ffe9d6", emissive: "#ff9a5c", emissiveIntensity: 1.1, roughness: 0.3 });
+  for (let i = 0; i < 4; i++) {
+    const ray = mesh(rbox(0.13, i % 2 ? 0.62 : 0.9, 0.1, 0.05), glow, { cast: false });
+    ray.rotation.z = (i * Math.PI) / 4;
+    spark.add(ray);
+  }
+  spark.add(mesh(new THREE.SphereGeometry(0.16, 14, 10), glow, { cast: false }));
+  spark.position.y = 3.05;
+  g.add(spark);
+  g.userData.spin = spark;
   g.scale.setScalar(1.2);
   return g;
 }

@@ -2,11 +2,14 @@
 import * as THREE from "three";
 import { beltTexture, boxTexture, mat, mesh, rbox } from "./util.js";
 
-const BELT_Y = 0.62, BELT_W = 0.62;
+const BELT_Y = 0.62, BELT_W = 0.74, SKIRT = 0.22;
 const beltMap = beltTexture();
 const beltMaterial = new THREE.MeshStandardMaterial({ map: beltMap, roughness: 0.7 });
-const railMaterial = mat("#d9dde3", { metal: 0.4, rough: 0.45 });
-const postMaterial = mat("#8f98a3", { metal: 0.3 });
+const railMaterial = mat("#f1f3f5", { metal: 0.35, rough: 0.4 });
+const skirtMaterial = mat("#dfe3e8", { metal: 0.15, rough: 0.55 });
+const postMaterial = mat("#9aa3ad", { metal: 0.35, rough: 0.45 });
+const skirtSides = skirtMaterial.clone();
+skirtSides.side = THREE.DoubleSide;
 
 function ribbon(curve, width, samples) {
   const positions = [], uvs = [], indices = [];
@@ -18,11 +21,27 @@ function ribbon(curve, width, samples) {
     const side = new THREE.Vector3().crossVectors(up, tangent).normalize().multiplyScalar(width / 2);
     positions.push(p.x - side.x, p.y, p.z - side.z, p.x + side.x, p.y, p.z + side.z);
     uvs.push(0, (t * length) / 1.2, 1, (t * length) / 1.2);
-    if (i < samples) { const k = i * 2; indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    if (i < samples) { const k = i * 2; indices.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }   // wound to face up
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+// A vertical strip hanging from the belt's edge (offset to one side), so the conveyor reads as a solid body, not a wire
+function skirt(curve, offset, samples) {
+  const positions = [], indices = [], up = new THREE.Vector3(0, 1, 0);
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples, p = curve.getPointAt(t);
+    const side = new THREE.Vector3().crossVectors(up, curve.getTangentAt(t)).normalize().multiplyScalar(offset);
+    positions.push(p.x + side.x, p.y + 0.05, p.z + side.z, p.x + side.x, p.y - SKIRT, p.z + side.z);
+    if (i < samples) { const k = i * 2; indices.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }   // wound to face up
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
@@ -51,15 +70,16 @@ export function belt(scene, a, outA, b, inB) {
   const group = new THREE.Group();
   const surface = mesh(ribbon(curve, BELT_W, samples), beltMaterial, { cast: false });
   group.add(surface);
-  // Dark underside and rails on both sides
-  const under = mesh(ribbon(curve, BELT_W + 0.12, samples), mat("#5c6370"), { y: -0.06, cast: true });
-  group.add(under);
-  for (const s of [-1, 1]) group.add(mesh(new THREE.TubeGeometry(offsetCurve(curve, s * (BELT_W / 2 + 0.03), samples), samples, 0.04, 5), railMaterial, { cast: false }));
-  // Legs
-  const legs = Math.floor(curve.getLength() / 2.2);
+  // Body: light side skirts and a base underneath (it casts the shadow), white rails along the top edges
+  for (const s of [-1, 1]) group.add(mesh(skirt(curve, s * (BELT_W / 2 + 0.05), samples), skirtSides, { cast: false }));
+  group.add(mesh(ribbon(curve, BELT_W + 0.1, samples), skirtMaterial, { y: -SKIRT, cast: true }));
+  for (const s of [-1, 1]) group.add(mesh(new THREE.TubeGeometry(offsetCurve(curve, s * (BELT_W / 2 + 0.05), samples), samples, 0.05, 6), railMaterial, { cast: false }));
+  // Legs: a pair under each frame
+  const legs = Math.floor(curve.getLength() / 2.2), up = new THREE.Vector3(0, 1, 0);
   for (let i = 1; i < legs; i++) {
     const p = curve.getPointAt(i / legs);
-    group.add(mesh(new THREE.CylinderGeometry(0.06, 0.08, BELT_Y - 0.1, 6), postMaterial, { x: p.x, y: (BELT_Y - 0.1) / 2, z: p.z }));
+    const side = new THREE.Vector3().crossVectors(up, curve.getTangentAt(i / legs)).normalize().multiplyScalar(BELT_W / 2 - 0.08);
+    for (const s of [-1, 1]) group.add(mesh(new THREE.CylinderGeometry(0.045, 0.06, BELT_Y - SKIRT, 6), postMaterial, { x: p.x + side.x * s, y: (BELT_Y - SKIRT) / 2, z: p.z + side.z * s }));
   }
   scene.add(group);
   return { curve, length: curve.getLength(), group };

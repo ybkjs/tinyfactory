@@ -62,11 +62,13 @@ canvas#scene:active { cursor: grabbing; }
 .c-idle { color: var(--idle); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 5px rgba(63, 155, 79, 0.05); } }
 
-.toolbar { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
-.toolbar > button { width: 70px; height: 66px; border: 0; border-radius: 16px; background: var(--card); box-shadow: 0 6px 20px rgba(40, 30, 10, 0.13); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #4a463f; cursor: pointer; font-family: inherit; transition: transform 0.12s, background 0.2s; }
+.toolbar { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; z-index: 10; }
+/* Three groups: camera · what's shown · share */
+.toolbar > button.group-end { margin-right: 12px; }
+.toolbar > button { width: 64px; height: 58px; border: 0; border-radius: 16px; background: var(--card); box-shadow: 0 6px 20px rgba(40, 30, 10, 0.13); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #4a463f; cursor: pointer; font-family: inherit; transition: transform 0.12s, background 0.2s; }
 .toolbar > button:hover { transform: translateY(-2px); background: #fffdf8; }
 .toolbar > button.off { color: #b0a99f; }
-.toolbar svg { width: 22px; height: 22px; }
+.toolbar svg { width: 21px; height: 21px; }
 .weather-menu { position: fixed; z-index: 20; bottom: 96px; left: calc(50% + 107px); background: var(--card); border-radius: 14px; box-shadow: 0 6px 20px rgba(40, 30, 10, 0.15); padding: 6px; display: none; flex-direction: column; min-width: 168px; }
 .weather-menu.open { display: flex; }
 .weather-menu button { border: 0; background: none; text-align: left; padding: 8px 12px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; color: var(--ink); }
@@ -128,6 +130,7 @@ canvas#scene:active { cursor: grabbing; }
   .toolbar { bottom: 14px; gap: 7px; }
   .toolbar > button { width: 44px; height: 44px; border-radius: 14px; }
   .toolbar > button span, .toolbar > .wide-only { display: none; }
+  .toolbar > button.group-end { margin-right: 6px; }
   .toolbar > button:hover { transform: none; }
   body.sheet .toolbar > [data-act="panel"] { background: var(--ink); color: #fff; }
   .weather-menu, .weather-menu.from-clock { top: auto; right: auto; left: 50%; bottom: 68px; transform: translateX(-50%); }
