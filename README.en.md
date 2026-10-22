@@ -78,6 +78,8 @@ Every `done` or `fail` sends a parcel to that agent. n8n, GitHub Actions, Python
 
 Line ids look like `source:name` (e.g. `codex:daily-news`, `systemd:backup`).
 `hide` / `rename` / `assign` / `factories.match` accept `*` wildcards. `building` is `shop`, `studio` or `home`.
+`lines` puts jobs this machine can't see (a cloud server, a SaaS scheduler) on the map as "not connected":
+`{ "id": "backup", "name": "Nightly backup", "factory": "My shop", "agent": "system", "schedule": { "type": "cron", "value": "0 3 * * *" } }`
 
 ## In the scene
 

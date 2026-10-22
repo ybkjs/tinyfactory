@@ -2,13 +2,14 @@
 import * as claude from "./sources/claude.mjs";
 import * as codex from "./sources/codex.mjs";
 import * as cron from "./sources/cron.mjs";
+import * as declared from "./sources/declared.mjs";
 import * as launchd from "./sources/launchd.mjs";
 import * as openclaw from "./sources/openclaw.mjs";
 import * as systemd from "./sources/systemd.mjs";
 import * as webhook from "./sources/webhook.mjs";
 import { globMatch } from "./util.mjs";
 
-export const SOURCES = [claude, codex, openclaw, cron, launchd, systemd, webhook];
+export const SOURCES = [claude, codex, openclaw, cron, launchd, systemd, webhook, declared];
 const HIGH_FREQUENCY = 600; // lines that run every ≤10 min don't count toward "done today"
 // Defaults for agents a line can point at without anyone describing them (e.g. a webhook saying agent: "deepseek")
 export const KNOWN_AGENTS = {
@@ -45,7 +46,7 @@ export function assemble(groups, config = {}) {
   for (const [id, extra] of Object.entries(config.agents || {})) agents.set(id, { kind: "custom", color: "#888", status: "idle", ...agents.get(id), ...extra, id });
 
   const hidden = (id) => (config.hide || []).some((p) => globMatch(p, id));
-  const custom = (config.factories || []).map((f) => ({ id: f.id || f.name, name: f.name, color: f.color || "#c9a227", building: f.building || "shop", match: f.match || [], lines: [] }));
+  const custom = (config.factories || []).map((f) => ({ id: f.id || f.name, name: f.name, color: f.color || "#c9a227", building: f.building || "shop", match: [...(f.match || []), ...(config.lines || []).filter((l) => l.factory === f.name).map((l) => `declared:${l.id}`)], lines: [] }));
   const factories = [];
   for (const g of groups) {
     const factory = { ...g.factory, lines: [] };

@@ -85,6 +85,8 @@ n8n、GitHub Actions、Python 脚本、飞书机器人……能发 HTTP 请求�
 - `assign`：指定哪个 agent 在干这条线的活
 - `factories`：按你的项目重新分厂区（`building`: `shop` / `studio` / `home`）
 - `systemd.services`：一直在线的服务也放进来，显示为「在线」
+- `lines`：这台电脑看不到的任务（云服务器、SaaS 里的定时任务）先手动挂上地图，显示「未接入」，例如
+  `{ "id": "backup", "name": "夜间备份", "factory": "我的网店", "agent": "system", "schedule": { "type": "cron", "value": "0 3 * * *" } }`
 
 产线 id 在页面左侧列表里点开就能看到，规则是 `来源:名字`，比如 `codex:daily-news`、`systemd:backup`。
 
