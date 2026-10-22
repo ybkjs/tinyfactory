@@ -2,25 +2,35 @@
 
 ## 0.3.0 — 2026-10-22
 
-Real history from the first look, and a monitor you notice from another tab.
+Two new sources, real history from the first look, a monitor you notice from another tab, and the groundwork of a
+mature project: a doctor, clear config errors, docs, and CI on Linux, macOS and Windows.
 
+**Sources**
+- **Windows Task Scheduler**: your own scheduled tasks (Microsoft's skipped) through PowerShell, with schedule, next and last run, and the last result.
+- **GitHub Actions** (opt-in, `"github": { "repos": ["owner/repo"] }`): each workflow is a line, each finished run a parcel, failures in a row go red; asked through your `gh` at most once a minute.
 - **systemd runs come from the journal.** Each poll reads what was logged since the last one, so a timer that runs every minute no longer loses runs between polls, and the first look brings back the last weeks (falls back to exit timestamps when the journal can't be read).
 - **More history out of the box**: finished Claude Code sessions of the last two weeks, and the last runs from each OpenClaw job's run log.
+- A source hidden as a whole (`"hide": ["cron:*"]`) isn't polled at all, so `crontab -l` no longer fills the system log every few seconds.
+- Codex automation files written with Windows line endings are read correctly.
+
+**In the page**
+- **Quick finder**: press `/` or ⌘K (or the search button) and type part of a name; Enter flies to it and opens its detail.
+- **Last 24 hours** on a line's detail: a ruler with a tick for every run (lines that run every few minutes keep just the bars).
 - **Tab badge**: "(1) tinyfactory" and a red dot on the icon while something needs attention.
 - **Share poster** with a title card, the date and today's numbers; the system share sheet on phones.
 - **Keyboard shortcuts**: H home, arrows turn, + − zoom, L labels, T task list (shown in the button tooltips).
-- A source hidden as a whole (`"hide": ["cron:*"]`) isn't polled at all, so `crontab -l` no longer fills the system log every few seconds.
-- **Quick finder**: press `/` or ⌘K (or the search button) and type part of a name; Enter flies to it and opens its detail.
-- **Last 24 hours** on a line's detail: a ruler with a tick for every run (lines that run every few minutes keep just the bars).
 - **Loading screen** while the 3D view gets ready, with a message when the browser can't show WebGL.
-- **Windows Task Scheduler source**: your own scheduled tasks (Microsoft's skipped) through PowerShell, with schedule, next and last run, and the last result.
-- **GitHub Actions source** (opt-in, `"github": { "repos": ["owner/repo"] }`): each workflow is a line, each finished run a parcel, failures in a row go red; asked through your `gh` at most once a minute.
+- **Cloud shadows** drift over the park on sunny days; yards, plazas and platforms take snow and cloud shadows like the lawn.
+
+**Running it**
 - **`tinyfactory doctor`** lists what each source found on this machine and why not, checks the config, Node and the port: paste it into an issue.
 - **A broken config is an error**, with the line and column and a pointer, instead of being silently ignored; unknown keys get a "did you mean", wrong types a warning. `--version` prints the version.
 - Reports over 16 KB get a proper `413` instead of a cut connection.
-- **Docs**: configuration reference, HTTP API, architecture and adding a source (`docs/`); examples for systemd, launchd and a full config (`examples/`); contributing guide, code of conduct, security policy, issue and pull request templates.
-- **CI** on Linux, macOS and Windows with Node 20, 22 and 24, a syntax and manifest check, coverage, and a release workflow: a version tag publishes the GitHub release from this changelog (and npm, once a token is set).
-- **Cloud shadows** drift over the park on sunny days; yards, plazas and platforms take snow and cloud shadows like the lawn.
+
+**The project**
+- **Docs**: configuration reference, HTTP API, architecture and adding a source (`docs/`); examples for systemd, launchd and a full config (`examples/`).
+- Contributing guide, code of conduct, security policy, issue forms and a pull request template.
+- **CI** on Linux, macOS and Windows with Node 20, 22 and 24, a syntax and manifest check, coverage, and a release workflow: a version tag publishes the GitHub release from this changelog (and npm, once a token is set). Dependabot, grouped and monthly.
 
 ## 0.2.0 — 2026-10-22
 
