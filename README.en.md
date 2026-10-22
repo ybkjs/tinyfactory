@@ -103,6 +103,7 @@ Line ids look like `source:name` (e.g. `codex:daily-news`, `systemd:backup`).
 
 - **Real time and weather** for your city: the sun moves, lamps and windows light up at night, rain and snow follow the real sky ([Open-Meteo](https://open-meteo.com/)). Switch cities or preview dusk / night / snowy night from the top-right card.
 - **Readable status**: green = running, red = needs attention (failing, stalled, unread results), hollow = waiting for its next run.
+- **Click to see how it's doing**: click a machine, an agent, the hub, a label or a line in the list. The camera flies there and the panel shows its status, schedule, last and next run, runs today, and the last 20 runs (green ok, red failed) with the success rate. On wide screens an activity card lists runs as they arrive. A failed run ships a parcel with a red lid.
 - **People at work**: each factory yard has workers in hard hats; when a line runs, one walks over and works the machine, and a line that runs continuously keeps someone beside it. The agents blink and come alive while they work.
 - **Labels in three steps**: by default only lines that are running, online or need attention carry a label; the Labels button switches to all, then off.
 - **Share** saves the current view as a PNG.

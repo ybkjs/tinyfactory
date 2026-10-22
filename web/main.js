@@ -6,7 +6,7 @@ import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { createParcels, scrollBelts } from "./flow.js";
+import { createParcels, hubCurve, scrollBelts } from "./flow.js";
 import { bakeStatic } from "./bake.js";
 import { lampMaterial, lamps, windowMaterial } from "./structures.js";
 import { cityName, describeWeather, lineStatus, nameOf, setLang, t } from "./i18n.js";
@@ -448,14 +448,23 @@ const agentAnim = new Map(layout.agents.map((a) => [a.id, { jump: 0, spin: 0, wo
 const machineAnim = new Map();
 const crate = new THREE.MeshStandardMaterial({ color: "#c99a62", roughness: 0.85 });
 
-function dispatch(lineId) {
+// One route through the hub per line and agent, made the first time a parcel needs it
+const hubRoutes = new Map();
+function hubRoute(lineId, agentId, inBelt, outBelt) {
+  const key = `${lineId}>${agentId}`;
+  if (!hubRoutes.has(key)) hubRoutes.set(key, hubCurve(inBelt.curve.getPointAt(1), outBelt.curve.getPointAt(0), world.hub.position));
+  return hubRoutes.get(key);
+}
+
+function dispatch(lineId, ok = true) {
   const line = world.lines.get(lineId);
   const agentId = lineById.get(lineId)?.agent || line?.line.agent;
   const out = world.outBelts.get(agentId);
   if (!line || !out) return;
   machineAnim.set(lineId, 2.5);
   sendWorker(line.machine, 2.6);
-  parcels.send([line.belt, out], {
+  parcels.send([line.belt, hubRoute(lineId, agentId, line.belt, out), out], {
+    tint: ok === false ? "#e5484d" : undefined,
     onArrive: () => {
       const a = agentAnim.get(agentId);
       a.jump = 0.6;
@@ -637,17 +646,17 @@ const agentStatus = (a) => (a?.status === "running" ? (a.busy ? `${t("processing
 function updateLabels() {
   bigBoxes = [];
   const hubAt = screenOf(world.hub.userData.labelAt.clone().add(world.hub.position));
-  const hubEl = ui.label("hub", `<i class="sq" style="background:#ff8a3d"></i>${esc(state.title || "tinyfactory")}<small>${t("hub")} · ${t("inTransit", parcels.count())}</small>`, "big");
+  const hubEl = ui.label("hub", `<i class="sq" style="background:#ff8a3d"></i>${esc(state.title || "tinyfactory")}<small>${t("hub")} · ${t("inTransit", parcels.count())}</small>`, "big", "hub");
   if (hubAt) placeAt(hubEl, hubAt.x, hubAt.y - 16);
   for (const [id, p] of world.agents) {
     const def = p.userData.def;
-    const el = ui.label(`a-${id}`, `<i class="sq" style="background:${def.color}"></i>${esc(nameOf(def.name))}<small>${esc(agentStatus(agentById.get(id)))}</small>`, "big");
+    const el = ui.label(`a-${id}`, `<i class="sq" style="background:${def.color}"></i>${esc(nameOf(def.name))}<small>${esc(agentStatus(agentById.get(id)))}</small>`, "big", `agent:${id}`);
     const at = screenOf(p.userData.labelAt.clone().add(p.position));
     if (at) placeAt(el, at.x, at.y - 16); else el.style.display = "none";
   }
   for (const f of world.factories) {
     const def = f.userData.def;
-    const big = ui.label(`f-${def.id}`, `<i class="sq" style="background:${def.color}"></i>${esc(nameOf(def.name))}${def.hiddenCount ? `<small>${t("more", def.hiddenCount)}</small>` : ""}`, "big");
+    const big = ui.label(`f-${def.id}`, `<i class="sq" style="background:${def.color}"></i>${esc(nameOf(def.name))}${def.hiddenCount ? `<small>${t("more", def.hiddenCount)}</small>` : ""}`, "big", `factory:${def.id}`);
     const at = screenOf(f.userData.labelAt.clone().add(f.position));
     if (at) placeAt(big, at.x, at.y - 16); else big.style.display = "none";
   }
@@ -656,7 +665,7 @@ function updateLabels() {
   const mode = document.body.dataset.labels || "key";
   const all = world.factories.flatMap((f) => f.userData.machines.map((m) => {
     const line = lineById.get(m.userData.line.id) || m.userData.line;
-    const el = ui.label(`m-${line.id}`, `<i class="dot ${line.status === "scheduled" ? "hollow" : line.status || "idle"}"></i>${esc(nameOf(line.name))}<small>${esc(lineStatus(line))}</small>`, "small");
+    const el = ui.label(`m-${line.id}`, `<i class="dot ${line.status === "scheduled" ? "hollow" : line.status || "idle"}"></i>${esc(nameOf(line.name))}<small>${esc(lineStatus(line))}</small>`, "small", `line:${line.id}`);
     return { id: line.id, el, anchor: screenOf(m.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0.2, 1.75, 0))) };
   }));
   // By default only the lines worth a look carry a label; the labels button switches to every line, then none
@@ -708,10 +717,62 @@ function onTool(act, arg) {
   if (act === "weather") preview = arg;
   if (act === "city") setCity(arg);
   if (act === "share") shareImage();
-  if (act === "focus") {
-    const entry = world.lines.get(arg);
-    if (entry) { g.target = entry.machine.getWorldPosition(new THREE.Vector3()); g.dist = 40; dispatchPreview(arg); }
+  if (act === "focus") onTool("pick", `line:${arg}`);
+  // Something was picked (in the scene, a label, the list or the activity card): fly there and open its detail
+  if (act === "pick") {
+    const [kind, ...rest] = String(arg).split(":"), id = rest.join(":");
+    const at = pickTarget(kind, id);
+    if (!at) return;
+    g.target = at.pos.clone().setY(0);
+    g.dist = Math.min(g.dist, narrow() ? Math.max(at.dist, HOME.dist * 0.55) : at.dist);
+    // Phones: the detail opens as a sheet over the bottom half, so aim a little in front and the picked thing sits above it
+    if (narrow()) g.target.add(new THREE.Vector3(Math.sin(g.az), 0, Math.cos(g.az)).multiplyScalar(g.dist * 0.09));
+    if (kind === "line") dispatchPreview(id);
+    ui.select({ kind, id });
   }
+  if (act === "selected") selection = arg ? pickTarget(arg.kind, arg.id) : null;
+}
+// Where a picked thing is, how close the camera comes, and the ring drawn around it
+function pickTarget(kind, id) {
+  if (kind === "line") { const e = world.lines.get(id); return e && { pos: e.machine.getWorldPosition(new THREE.Vector3()), dist: 40, ring: 1.15 }; }
+  if (kind === "agent") { const p = world.agents.get(id); return p && { pos: p.position.clone(), dist: 46, ring: p.userData.def.radius + 0.35 }; }
+  if (kind === "factory") { const f = world.factories.find((x) => x.userData.def.id === id); return f && { pos: f.position.clone(), dist: 60, ring: 0 }; }
+  if (kind === "hub") return { pos: world.hub.position.clone(), dist: 52, ring: layout.hub.radius + 0.35 };
+  return null;
+}
+let selection = null;
+const marker = new THREE.Mesh(new THREE.TorusGeometry(1, 0.07, 8, 72), new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.9, depthWrite: false }));
+marker.rotation.x = -Math.PI / 2;
+marker.visible = false;
+scene.add(marker);
+function updateMarker(t) {
+  marker.visible = Boolean(selection?.ring);
+  if (!marker.visible) return;
+  marker.position.set(selection.pos.x, 0.45, selection.pos.z);
+  marker.scale.setScalar(selection.ring * (1 + Math.sin(t * 3) * 0.04));
+  marker.material.opacity = 0.65 + Math.sin(t * 3) * 0.25;
+}
+
+// Picking in the scene: the nearest machine, platform or hub under the pointer, measured on screen
+const right = new THREE.Vector3();
+let PICKS = null;
+function pickAt(x, y) {
+  PICKS ||= [
+    ...[...world.lines.keys()].map((id) => ({ key: `line:${id}`, pos: world.lines.get(id).machine.getWorldPosition(new THREE.Vector3()).setY(0.8), r: 1.0 })),
+    ...[...world.agents.entries()].map(([id, p]) => ({ key: `agent:${id}`, pos: p.position.clone().setY(1.4), r: p.userData.def.radius * 0.75 })),
+    { key: "hub", pos: world.hub.position.clone().setY(2), r: layout.hub.radius * 0.7 }
+  ];
+  right.setFromMatrixColumn(camera.matrixWorld, 0);
+  let best = null, score = 1;
+  for (const p of PICKS) {
+    const c = screenOf(p.pos);
+    if (!c) continue;
+    const e = screenOf(p.pos.clone().addScaledVector(right, p.r));
+    const radius = Math.max(14, Math.hypot(e.x - c.x, e.y - c.y));
+    const k = Math.hypot(x - c.x, y - c.y) / radius;
+    if (k < score) { score = k; best = p.key; }
+  }
+  return best;
 }
 function dispatchPreview(id) { if (DEMO) dispatch(id); }
 
@@ -724,10 +785,14 @@ canvas.addEventListener("pointerdown", (e) => {
   document.body.classList.remove("sheet");
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   canvas.setPointerCapture(e.pointerId);
+  press = { x: e.clientX, y: e.clientY, n: pointers.size };
   if (pointers.size === 2) { drag = null; pinch = { from: spread(), dist: rig.goal.dist }; }
   else drag = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey };
 });
+let press = null;
 canvas.addEventListener("pointermove", (e) => {
+  if (!pointers.size && e.pointerType === "mouse") canvas.style.cursor = pickAt(e.clientX, e.clientY) ? "pointer" : "";
+  if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 6) press = null;
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinch && pointers.size === 2) { rig.goal.dist = THREE.MathUtils.clamp(pinch.dist * (pinch.from / Math.max(spread(), 1)), 28, maxDist()); return; }
   if (!drag) return;
@@ -744,6 +809,12 @@ canvas.addEventListener("pointermove", (e) => {
   }
 });
 function release(e) {
+  // A tap or click that didn't move picks what's under it (or closes the detail on empty ground)
+  if (e.type === "pointerup" && press && press.n === 1 && pointers.size === 1) {
+    const key = pickAt(e.clientX, e.clientY);
+    if (key) onTool("pick", key); else if (ui.selected) ui.select(null);
+  }
+  press = null;
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinch = null;
   // Lifting one finger of a pinch carries on as a drag from the other one, without a jump
@@ -762,7 +833,7 @@ let nextSlot = 0;
 function schedule(ev) {
   const now = performance.now();
   nextSlot = Math.max(nextSlot, now) + 700 + Math.random() * 900;
-  setTimeout(() => dispatch(ev.line), nextSlot - now);
+  setTimeout(() => dispatch(ev.line, ev.ok), nextSlot - now);
 }
 
 let reloading = false;
@@ -870,6 +941,7 @@ function frame() {
   updateParticles(dt, t);
   animate(dt, t);
   updatePeople(dt, t, day);
+  updateMarker(t);
   updateLabels();
   if (t - lastClock > 1) {
     lastClock = t;

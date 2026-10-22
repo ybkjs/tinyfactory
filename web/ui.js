@@ -1,5 +1,5 @@
 // Overlay: factory/line list, top counters, clock & weather, toolbar, 3D labels
-import { cityName, lang, lineStatus, nameOf, scheduleText, t } from "./i18n.js";
+import { agoText, cityName, lang, lineStatus, nameOf, pastText, scheduleText, t, whenText } from "./i18n.js";
 
 const $ = (sel) => document.querySelector(sel);
 const narrow = () => matchMedia("(max-width: 760px), (max-aspect-ratio: 4/5)").matches;
@@ -44,6 +44,7 @@ export function createUI({ onTool, cities }) {
       <div class="menu-title">${t("preview")}</div>
       ${previews.map(([k, v]) => `<button data-weather="${v}">${t(k)}</button>`).join("")}
     </div>
+    <div class="card feed" id="feed"></div>
     <div class="card empty" id="empty" hidden></div>
     <div class="card cta" id="cta" hidden></div>
   `);
@@ -74,19 +75,38 @@ export function createUI({ onTool, cities }) {
     if (!b) return;
     navigator.clipboard?.writeText(b.dataset.copy).then(() => { b.textContent = t("copied"); setTimeout(() => { b.textContent = t("copy"); }, 1600); }).catch(() => {});
   });
+  // The panel drills down: a row opens its detail, the back button returns to the list
   $("#panel").addEventListener("click", (e) => {
-    const row = e.target.closest("[data-line]");
+    if (e.target.closest("[data-back]")) return select(null);
+    const row = e.target.closest("[data-line], [data-agent]");
     if (!row) return;
-    document.body.classList.remove("sheet");
-    onTool("focus", row.dataset.line);
+    if (row.dataset.line) onTool("pick", `line:${row.dataset.line}`);
+    else onTool("pick", `agent:${row.dataset.agent}`);
   });
+  $("#feed").addEventListener("click", (e) => { const row = e.target.closest("[data-line]"); if (row) onTool("pick", `line:${row.dataset.line}`); });
+  // Labels in the scene are clickable too
+  $("#labels").addEventListener("click", (e) => { const tag = e.target.closest("[data-pick]"); if (tag) onTool("pick", tag.dataset.pick); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && selected) select(null); });
+
+  let selected = null, last = null;
+  function select(sel) {
+    selected = sel;
+    if (sel) {
+      // Make sure the panel is showing: the sheet on phones, unfolded elsewhere
+      if (narrow()) document.body.classList.add("sheet");
+      else { $("#panel").classList.remove("hidden"); $('[data-act="panel"]').classList.remove("off"); }
+    }
+    onTool("selected", sel);
+    if (last) render(last);
+  }
 
   const labelEls = new Map();
-  function label(id, html, kind) {
+  function label(id, html, kind, pick) {
     let el = labelEls.get(id);
     if (!el) {
       el = document.createElement("div");
       el.className = `tag ${kind}`;
+      if (pick) el.dataset.pick = pick;
       $("#labels").appendChild(el);
       labelEls.set(id, el);
     }
@@ -96,6 +116,7 @@ export function createUI({ onTool, cities }) {
   }
 
   function render(state) {
+    last = state;
     if (state.title) $("#brand-title").textContent = `${state.title} · ${t("title")}`;
     $("#mode").textContent = state.demo ? t("demo") : state.stale ? t("stale") : t("live");
     $(".brand-sub .dot").className = `dot ${state.demo ? "queued" : state.stale ? "warn" : "live"}`;
@@ -124,7 +145,13 @@ export function createUI({ onTool, cities }) {
     }).join("");
     const agents = state.agents.map((a) => `<div class="row"><i class="dot ${a.status === "running" ? "running" : a.status === "warn" ? "warn" : "idle"}"></i><div class="row-main"><div class="row-top"><span class="row-name">${esc(nameOf(a.name))}</span><span class="c-${a.status || "idle"}">${a.status === "running" ? t("processing") : a.status === "warn" ? t("warn") : t("standby")}</span></div>
       <div class="row-sub"><span class="chip"><i style="background:${a.color}"></i>${esc(nameOf(a.sub || ""))}</span><span class="muted"> ${t("doneN", a.done || 0)}</span></div></div></div>`).join("");
-    $("#panel").innerHTML = `${groups}${state.agents.length ? `<div class="group"><div class="group-head agent-head">${t("agents")}</div>${agents}</div>` : ""}`;
+    const list = `${groups}${state.agents.length ? `<div class="group"><div class="group-head agent-head">${t("agents")}</div>${agents}</div>` : ""}`;
+    const detail = selected && detailHtml(selected, state);
+    if (selected && !detail) selected = null;
+    const panelHtml = detail || list;
+    if ($("#panel")._html !== panelHtml) { $("#panel").innerHTML = panelHtml; $("#panel")._html = panelHtml; }
+    $("#panel").classList.toggle("detail-open", Boolean(detail));
+    renderFeed(state);
 
     const empty = $("#empty");
     if (!state.factories.length && !state.demo) {
@@ -154,6 +181,95 @@ export function createUI({ onTool, cities }) {
     }
   }
 
+  // Detail views: a line (status, schedule, last/next run, the last runs as bars), an agent, a factory, the hub
+  function detailHtml(sel, state) {
+    const lines = state.factories.flatMap((f) => f.lines.map((l) => ({ ...l, factory: f })));
+    const agentById = new Map(state.agents.map((a) => [a.id, a]));
+    const back = `<button class="back" data-back>‹ ${t("allTasks")}</button>`;
+    const fact = (k, v) => `<div class="fact"><span>${k}</span><b>${v}</b></div>`;
+    const lineRow = (l) => `<div class="row" data-line="${esc(l.id)}"><i class="dot ${l.status === "scheduled" ? "hollow" : l.status}"></i><div class="row-main"><div class="row-top"><span class="row-name">${esc(nameOf(l.name))}</span><span class="${l.status === "scheduled" ? "muted" : `c-${l.status}`}">${esc(lineStatus(l))}</span></div></div></div>`;
+    if (sel.kind === "line") {
+      const l = lines.find((x) => x.id === sel.id);
+      if (!l) return null;
+      const a = agentById.get(l.agent);
+      const runs = state.history?.[l.id] || [];
+      const lastAt = Math.max(l.last || 0, runs.at(-1)?.at || 0);
+      const ok = runs.filter((r) => r.ok).length;
+      const bars = Array.from({ length: 20 }, (_, i) => {
+        const r = runs[runs.length - 20 + i];
+        return r ? `<i class="${r.ok ? "ok" : "bad"}" title="${esc(pastText(r.at))}${r.ok ? "" : ` · ${t("failedRun")}`}"></i>` : "<i></i>";
+      }).join("");
+      return `${back}
+        <div class="detail-title"><i class="dot ${l.status === "scheduled" ? "hollow" : l.status}"></i><b>${esc(nameOf(l.name))}</b></div>
+        <div class="detail-sub"><i class="sq" style="background:${l.factory.color}"></i>${esc(nameOf(l.factory.name))} · ${esc(scheduleText(l.schedule))} → <span class="chip"><i style="background:${a?.color || "#999"}"></i>${esc(nameOf(a?.name || l.agent))}</span></div>
+        <div class="facts">
+          ${fact(t("status"), `<span class="${l.status === "scheduled" ? "" : `c-${l.status}`}">${esc(lineStatus(l)) || "—"}</span>`)}
+          ${fact(t("lastRun"), lastAt ? `${esc(pastText(lastAt))} <small>${esc(agoText(lastAt))}</small>` : "—")}
+          ${fact(t("nextRun"), l.next ? esc(whenText(l.next)) : "—")}
+          ${fact(t("todayRuns"), esc(t("timesN", l.today || 0)))}
+        </div>
+        <div class="runs-head"><span>${esc(t("recentRuns", Math.min(20, runs.length) || 20))}</span>${runs.length ? `<span>${t("successRate")} ${Math.round((ok / runs.length) * 100)}%</span>` : ""}</div>
+        ${runs.length ? `<div class="runs">${bars}</div><div class="runs-axis"><span>${esc(pastText(runs[Math.max(0, runs.length - 20)].at))}</span><span>${t("latest")}</span></div>` : `<div class="muted runs-empty">${t("noRuns")}</div>`}
+        ${l.description ? `<p class="detail-desc">${esc(l.description)}</p>` : ""}
+        <code class="line-id">${esc(l.id)}</code>`;
+    }
+    if (sel.kind === "agent") {
+      const a = agentById.get(sel.id);
+      if (!a) return null;
+      const mine = lines.filter((l) => l.agent === a.id);
+      return `${back}
+        <div class="detail-title"><i class="sq" style="background:${a.color}"></i><b>${esc(nameOf(a.name))}</b></div>
+        <div class="detail-sub">${esc(nameOf(a.sub || ""))}</div>
+        <div class="facts">
+          ${fact(t("status"), `<span class="c-${a.status || "idle"}">${a.status === "running" ? t("processing") : a.status === "warn" ? t("warn") : t("standby")}</span>`)}
+          ${fact(t("doneToday"), esc(String(a.done || 0)))}
+          ${a.busy ? fact(t("busyNow"), esc(String(a.busy))) : ""}
+        </div>
+        <div class="runs-head"><span>${t("linesHere")} · ${mine.length}</span></div>
+        ${mine.map(lineRow).join("")}`;
+    }
+    if (sel.kind === "factory") {
+      const f = state.factories.find((x) => x.id === sel.id);
+      if (!f) return null;
+      return `${back}
+        <div class="detail-title"><i class="sq" style="background:${f.color}"></i><b>${esc(nameOf(f.name))}</b></div>
+        <div class="detail-sub">${t("lines", f.lines.length)}</div>
+        ${f.lines.map((l) => lineRow({ ...l, factory: f })).join("")}`;
+    }
+    if (sel.kind === "hub") {
+      const c = state.counts || {};
+      return `${back}
+        <div class="detail-title"><i class="sq" style="background:#ff8a3d"></i><b>${esc(state.title || "tinyfactory")}</b> <span class="muted">${t("hubTitle")}</span></div>
+        <p class="detail-desc">${t("hubText")}</p>
+        <div class="facts">
+          ${fact(t("linesWord"), esc(String(lines.length)))}
+          ${fact("Agent", esc(String(state.agents.length)))}
+          ${fact(t("doneToday"), esc(String(c.done || 0)))}
+          ${fact(t("warn"), `<span class="${c.warn ? "c-warn" : ""}">${c.warn || 0}</span>`)}
+        </div>
+        <div class="runs-head"><span>${t("activity")}</span></div>
+        ${feedRows(state, 8) || `<div class="muted runs-empty">${t("noActivity")}</div>`}`;
+    }
+    return null;
+  }
+
+  // The latest runs, newest first
+  function feedRows(state, n) {
+    const lineById = new Map(state.factories.flatMap((f) => f.lines.map((l) => [l.id, l])));
+    const agentById = new Map(state.agents.map((a) => [a.id, a]));
+    return (state.events || []).slice(-n).reverse().map((e) => {
+      const l = lineById.get(e.line), a = agentById.get(e.agent);
+      if (!l) return "";
+      return `<div class="feed-row" data-line="${esc(e.line)}"><i class="dot ${e.ok === false ? "warn" : "live"}"></i><span class="feed-name">${esc(nameOf(l.name))}</span><span class="feed-agent">→ ${esc(nameOf(a?.name || e.agent))}</span><span class="feed-time">${esc(agoText(e.at))}</span></div>`;
+    }).join("");
+  }
+  function renderFeed(state) {
+    const feed = $("#feed");
+    const html = `<div class="feed-head">${t("activity")}</div>${feedRows(state, 6) || `<div class="muted feed-empty">${t("noActivity")}</div>`}`;
+    if (feed._html !== html) { feed.innerHTML = html; feed._html = html; }
+    feed.hidden = !state.factories.length;
+  }
+
   function setCity(id) {
     for (const b of document.querySelectorAll("[data-city]")) b.classList.toggle("on", b.dataset.city === id);
   }
@@ -166,5 +282,5 @@ export function createUI({ onTool, cities }) {
     $("#c-weather").textContent = weather ? `${weather.emoji} ${city} · ${weather.text}${weather.temp !== undefined ? ` ${Math.round(weather.temp)}°` : ""}` : city;
   }
 
-  return { render, renderClock, setCity, label, labelEls };
+  return { render, renderClock, setCity, label, labelEls, select, get selected() { return selected; } };
 }

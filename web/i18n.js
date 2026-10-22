@@ -22,7 +22,11 @@ const T = {
       lastFailed: () => "上次失败", exitCode: (_, x) => `退出码 ${x.code}`, notLoaded: () => "没加载", failed: (_, x) => `失败（${x.result}）`, down: () => "没在运行", notConnected: () => "未接入", remoteDown: (_, x) => `连不上 ${x.name}`
     },
     weatherText: { clear: "晴", partly: "多云", cloudy: "阴", fog: "雾", rain: "雨", storm: "雷雨", snow: "雪" },
-    shareTitle: "我的 AI 微缩工厂"
+    shareTitle: "我的 AI 微缩工厂",
+    allTasks: "全部任务", status: "状态", lastRun: "上次运行", nextRun: "下次运行", todayRuns: "今日", timesN: (n) => `${n} 次`,
+    recentRuns: (n) => `最近 ${n} 次`, successRate: "成功率", noRuns: "还没有运行记录", latest: "最新", busyNow: "正在处理", linesHere: "负责的产线",
+    hubTitle: "中台", hubText: "所有产线的包裹先送到这里分拣，再交给对应的 agent。", activity: "最近动态", noActivity: "新的运行会出现在这里",
+    justNow: "刚刚", minAgo: (n) => `${n} 分钟前`, hourAgo: (n) => `${n} 小时前`, dayAgo: (n) => `${n} 天前`, yesterday: "昨天", today2: "今天", agentsN: (n) => `${n} 个 agent`, linesWord: "产线", failedRun: "失败"
   },
   en: {
     title: "Automation monitor", live: "Live · refreshes every 10s", demo: "Demo · parcels are simulated", stale: "Some sources unreachable",
@@ -42,7 +46,11 @@ const T = {
       lastFailed: () => "last run failed", exitCode: (_, x) => `exit code ${x.code}`, notLoaded: () => "not loaded", failed: (_, x) => `failed (${x.result})`, down: () => "not running", notConnected: () => "not connected", remoteDown: (_, x) => `${x.name} unreachable`
     },
     weatherText: { clear: "Clear", partly: "Partly cloudy", cloudy: "Overcast", fog: "Fog", rain: "Rain", storm: "Storm", snow: "Snow" },
-    shareTitle: "My AI miniature factory"
+    shareTitle: "My AI miniature factory",
+    allTasks: "All tasks", status: "Status", lastRun: "Last run", nextRun: "Next run", todayRuns: "Today", timesN: (n) => `${n} run${n === 1 ? "" : "s"}`,
+    recentRuns: (n) => `Last ${n} runs`, successRate: "Success", noRuns: "No runs recorded yet", latest: "latest", busyNow: "Working on", linesHere: "Lines",
+    hubTitle: "Hub", hubText: "Every line sends its parcels here to be sorted and handed to the right agent.", activity: "Activity", noActivity: "New runs show up here",
+    justNow: "just now", minAgo: (n) => `${n} min ago`, hourAgo: (n) => `${n} h ago`, dayAgo: (n) => `${n} d ago`, yesterday: "yesterday", today2: "today", agentsN: (n) => `${n} agent${n === 1 ? "" : "s"}`, linesWord: "Lines", failedRun: "failed"
   }
 };
 
@@ -120,6 +128,26 @@ export function whenText(ms, now = Date.now()) {
   if (days <= 0) return time;
   if (days === 1) return `${t("tomorrow")} ${time}`;
   if (days < 7) return lang === "zh" ? `周${T.zh.week[d.getDay()]} ${time}` : `${T.en.week[d.getDay()]} ${time}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${time}`;
+}
+
+// How long ago: "刚刚" / "3 分钟前" / "2 小时前" / "4 天前"
+export function agoText(ms, now = Date.now()) {
+  const s = Math.max(0, (now - ms) / 1000);
+  if (s < 60) return t("justNow");
+  if (s < 3600) return t("minAgo", Math.floor(s / 60));
+  if (s < 86400) return t("hourAgo", Math.floor(s / 3600));
+  return t("dayAgo", Math.floor(s / 86400));
+}
+
+// A past moment: "10:31" today, "昨天 10:31", then "10/20 10:31"
+export function pastText(ms, now = Date.now()) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const time = hm(d.getHours(), d.getMinutes());
+  const days = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+  if (days <= 0) return time;
+  if (days === 1) return `${t("yesterday")} ${time}`;
   return `${d.getMonth() + 1}/${d.getDate()} ${time}`;
 }
 

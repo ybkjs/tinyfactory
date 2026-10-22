@@ -41,3 +41,19 @@ test("collector: remembers which sources found something (for the empty screen)"
   const state = await createCollector({ sources: [empty, full] }).refresh();
   assert.deepEqual(state.scanned, [{ id: "a", found: false }, { id: "b", found: true }]);
 });
+
+test("collector: keeps the last runs of each line, history included", async () => {
+  const { createCollector } = await import("../src/assemble.mjs");
+  const now = Date.now();
+  let runs = Array.from({ length: 30 }, (_, i) => ({ id: `r${i}`, line: "x:1", at: now - (30 - i) * 60000, ok: i !== 28 }));
+  const source = { id: "x", collect: async () => ({ factory: { id: "f", name: "F" }, agent: null, lines: [{ id: "x:1", name: "one", status: "idle" }], runs }) };
+  const collector = createCollector({ sources: [source] });
+  let state = await collector.refresh();
+  assert.equal(state.history["x:1"].length, 20);
+  assert.equal(state.history["x:1"].at(-2).ok, false);
+  assert.equal(state.events.length, 0);
+  runs = [{ id: "new", line: "x:1", at: now, ok: true }];
+  state = await collector.refresh();
+  assert.equal(state.history["x:1"].at(-1).at, now);
+  assert.equal(state.events.length, 1);
+});

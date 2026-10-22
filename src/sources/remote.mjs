@@ -37,7 +37,10 @@ export async function collect(ctx) {
     }
     // Their agents join the pool (only the ones still used after config rules stay on the map)
     for (const a of cache.state.agents || []) groups.push({ factory: null, agent: a, lines: [], runs: [] });
-    if (!down) groups.push({ factory: null, agent: null, lines: [], runs: (cache.state.events || []).map((e) => ({ id: prefix(`${e.id}:${e.at}`), line: prefix(e.line), at: e.at, ok: e.ok })) });
+    // Their history and their new events, keyed by line and time so a run that shows up in both counts once
+    const run = (line, at, ok) => ({ id: prefix(`run:${line}:${at}`), line: prefix(line), at, ok });
+    const past = Object.entries(cache.state.history || {}).flatMap(([line, list]) => list.map((r) => run(line, r.at, r.ok)));
+    if (!down) groups.push({ factory: null, agent: null, lines: [], runs: [...past, ...(cache.state.events || []).map((e) => run(e.line, e.at, e.ok))] });
   }
   return groups;
 }

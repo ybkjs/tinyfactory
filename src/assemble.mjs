@@ -7,6 +7,7 @@ export function globMatch(pattern, value) {
   return re.test(value);
 }
 
+const HISTORY = 20;          // runs kept per line for the detail card
 const HIGH_FREQUENCY = 600; // lines that run every ≤10 min don't count toward "done today"
 // Defaults for agents a line can point at without anyone describing them (e.g. a webhook saying agent: "deepseek")
 export const KNOWN_AGENTS = {
@@ -88,6 +89,8 @@ export function createCollector({ config = {}, log = () => {}, sources }) {
   const ctx = { config, memory: {} };
   const seen = new Set();
   const events = [];
+  // The last few runs of every line, history included, for the detail card
+  const history = new Map();
   let seq = 0, primed = false, state = null;
 
   async function refresh() {
@@ -98,13 +101,18 @@ export function createCollector({ config = {}, log = () => {}, sources }) {
     for (const run of groups.flatMap((g) => g.runs || [])) {
       if (seen.has(run.id)) continue;
       seen.add(run.id);
+      if (!history.has(run.line)) history.set(run.line, []);
+      const list = history.get(run.line);
+      list.push({ at: run.at, ok: run.ok !== false });
+      if (list.length > HISTORY * 2) { list.sort((a, b) => a.at - b.at); list.splice(0, list.length - HISTORY); }
       // Only runs that happen while we're watching become parcels; history stays history
       if (primed && agentOf.has(run.line) && run.at > Date.now() - 10 * 60 * 1000) events.push({ id: ++seq, line: run.line, agent: agentOf.get(run.line), at: run.at, ok: run.ok });
     }
     events.splice(0, Math.max(0, events.length - 100));
     primed = true;
     const scanned = sources.map((s, i) => ({ id: s.id, found: Boolean(results[i] && (!Array.isArray(results[i]) || results[i].length)) }));
-    state = { ...view, events: [...events], scanned, generatedAt: Date.now() };
+    const recent = Object.fromEntries([...agentOf.keys()].filter((id) => history.has(id)).map((id) => [id, history.get(id).sort((a, b) => a.at - b.at).slice(-HISTORY)]));
+    state = { ...view, events: [...events], history: recent, scanned, generatedAt: Date.now() };
     return state;
   }
 

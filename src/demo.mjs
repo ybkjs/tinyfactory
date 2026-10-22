@@ -40,11 +40,24 @@ export const DEMO_GROUPS = [
 export function demoSource() {
   const weights = [["shop:health", 5], ["shop:sales", 2], ["home:inbox", 2], ["home:sessions", 1], ["content:news", 1], ["home:morning", 1], ["shop:chat", 2], ["home:review", 1]];
   const total = weights.reduce((s, [, w]) => s + w, 0);
-  let n = 0;
+  let n = 0, seeded = false;
+  // How often each demo line ran over the past hours (minutes between runs) and how often it failed
+  const PAST = { "shop:health": [1, 0.01], "shop:sales": [5, 0.04], "shop:report": [1440, 0], "shop:deploy": [1440, 0], "shop:chat": [12, 0], "content:news": [1440, 0], "content:weekly": [10080, 0], "home:inbox": [45, 0], "home:morning": [1440, 0], "home:sessions": [70, 0], "content:topics": [10080, 0] };
   return {
     id: "demo",
     async collect() {
       const runs = [];
+      if (!seeded) {
+        // First look: a believable history so the detail cards aren't empty
+        seeded = true;
+        for (const [line, [every, fail]] of Object.entries(PAST)) {
+          for (let k = 1; k <= 20; k++) {
+            const at = Date.now() - k * every * 60000 * (0.9 + Math.random() * 0.2);
+            if (at < Date.now() - 8 * 86400000) break;
+            runs.push({ id: `demo:past:${line}:${k}`, line, at, ok: Math.random() >= fail });
+          }
+        }
+      }
       const count = 2 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
         let r = Math.random() * total;

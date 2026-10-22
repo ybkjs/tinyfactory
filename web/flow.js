@@ -85,6 +85,21 @@ export function belt(scene, a, outA, b, inB) {
   return { curve, length: curve.getLength(), group };
 }
 
+// Inside the hub: from the end of an incoming belt, up onto the sorting turntable, round to the outgoing belt's side,
+// and back down to it. The wall hides the climb; the glass dome shows the parcel riding the turntable.
+export function hubCurve(from, to, hub, { deck = 2.32, ring = 2.35 } = {}) {
+  const aIn = Math.atan2(from.z - hub.z, from.x - hub.x), aOut = Math.atan2(to.z - hub.z, to.x - hub.x);
+  const turn = Math.atan2(Math.sin(aOut - aIn), Math.cos(aOut - aIn));
+  const at = (a, r, y) => new THREE.Vector3(hub.x + Math.cos(a) * r, y, hub.z + Math.sin(a) * r);
+  // Through the wall low (the wall's inner face is at 3.6), straight up behind it, then onto the turntable
+  const points = [new THREE.Vector3(from.x, BELT_Y, from.z), at(aIn, 3.5, BELT_Y), at(aIn, 3.25, 1.4), at(aIn, 2.7, deck)];
+  const steps = Math.max(2, Math.ceil(Math.abs(turn) / 0.3));
+  for (let i = 0; i <= steps; i++) points.push(at(aIn + (turn * i) / steps, ring, deck));
+  points.push(at(aOut, 2.7, deck), at(aOut, 3.25, 1.4), at(aOut, 3.5, BELT_Y), new THREE.Vector3(to.x, BELT_Y, to.z));
+  const curve = new THREE.CatmullRomCurve3(points, false, "centripetal");
+  return { curve, length: curve.getLength() };
+}
+
 export function scrollBelts(dt, speed = 1) {
   beltMap.offset.y -= dt * 0.9 * speed;
 }
