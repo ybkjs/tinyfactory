@@ -514,6 +514,9 @@ function animate(dt, t) {
     if (character.userData.spin) character.userData.spin.rotation.z += dt * (working ? 2.4 : 0.5);
     if (character.userData.spout) { const s = working ? 1 + Math.sin(t * 10) * 0.15 : 0.6 + Math.sin(t * 2) * 0.1; character.userData.spout.scale.setScalar(s); }
     if (character.userData.leds) character.userData.leds.forEach((led, i) => { led.material.emissiveIntensity = working ? (Math.sin(t * 14 + i * 1.7) > 0 ? 1.6 : 0.2) : 0.6 + Math.sin(t * 1.5 + i) * 0.2; });
+    // Blink every few seconds (each agent on its own beat); Codex's cursor blinks faster while it works
+    if (character.userData.eyes) { const k = (t + def.x * 0.37 + def.z * 0.61) % 4.3; for (const e of character.userData.eyes) e.scale.y = k < 0.12 ? 0.12 : 1; }
+    if (character.userData.cursor) character.userData.cursor.visible = Math.floor(t * (working ? 5 : 1.6)) % 2 === 0;
     if (character.userData.claws) character.userData.claws.forEach((c, i) => { c.rotation.x = Math.sin(t * (working ? 9 : 1.5) + i * 2) * (working ? 0.35 : 0.1); });
   }
 }
@@ -805,4 +808,4 @@ function frame() {
   adaptQuality();
 }
 frame();
-window.__factory = { dispatch, onTool, scene, renderer };
+window.__factory = { dispatch, onTool, scene, renderer, world, rig };

@@ -334,18 +334,54 @@ export function hub(def) {
 
 /* ---------- Agent platforms and characters ---------- */
 
+// Shared bits that make the characters cute: catchlights in the eyes, rosy cheeks, a small smile.
+// Eyes are groups so main.js can blink them (scale.y); every character lists its eyes in userData.eyes.
+const ink = mat("#1d1d1f", { rough: 0.35, snow: 0 });
+const shine = new THREE.MeshBasicMaterial({ color: "#ffffff" });
+const cheek = mat("#ff8fa3", { rough: 0.85, snow: 0 });
+function eye(r = 0.13, flat = 0.45) {
+  const g = new THREE.Group();
+  const ball = mesh(new THREE.SphereGeometry(r, 16, 12), ink, { cast: false });
+  ball.scale.set(1, 1.25, flat);
+  g.add(ball);
+  g.add(mesh(new THREE.SphereGeometry(r * 0.36, 10, 8), shine, { x: r * 0.35, y: r * 0.45, z: r * flat * 0.85, cast: false }));
+  return g;
+}
+function blush(r = 0.13) {
+  const m = mesh(new THREE.SphereGeometry(r, 14, 10), cheek, { cast: false });
+  m.scale.set(1.3, 0.75, 0.25);
+  return m;
+}
+function smile(w = 0.22, thick = 0.035, material = ink) {
+  const m = mesh(new THREE.TorusGeometry(w / 2, thick, 6, 18, Math.PI), material, { cast: false });
+  m.rotation.z = Math.PI;
+  return m;
+}
+const at = (o, x, y, z, ry = 0) => { o.position.set(x, y, z); o.rotation.y = ry; return o; };
+
 function critter() {
-  // Orange pixel critter for Claude Code: blocky body, little claws, four legs, a floating gem above
+  // Orange pixel critter for Claude Code: blocky body with a lighter top, square eyes with a pixel catchlight,
+  // pixel cheeks, little claws and four legs, a spark floating above
   const g = new THREE.Group();
   const body = mat("#d97757", { rough: 0.7 });
   const pixel = (w, h, d) => rbox(w, h, d, 0.04, 2);
   g.add(mesh(pixel(2.0, 1.45, 1.35), body, { y: 1.18 }));
+  g.add(mesh(pixel(2.03, 0.12, 1.38), mat("#ea916f", { rough: 0.7 }), { y: 1.86 }));
+  const feet = mat("#c2654a", { rough: 0.7 });
   for (const s of [-1, 1]) {
     g.add(mesh(pixel(0.5, 0.42, 0.62), body, { x: s * 1.24, y: 1.1 }));
-    for (const z of [-0.42, 0.42]) g.add(mesh(pixel(0.26, 0.48, 0.26), body, { x: s * 0.62, y: 0.24, z }));
+    g.add(mesh(pixel(0.16, 0.42, 0.64), mat("#c2654a", { rough: 0.7 }), { x: s * 1.43, y: 1.1 }));
+    for (const z of [-0.42, 0.42]) g.add(mesh(pixel(0.26, 0.48, 0.26), feet, { x: s * 0.62, y: 0.24, z }));
   }
-  const eye = mat("#1d1d1f", { rough: 0.4, snow: 0 });
-  for (const x of [-0.42, 0.42]) g.add(mesh(new THREE.BoxGeometry(0.2, 0.3, 0.05), eye, { x, y: 1.32, z: 0.69, cast: false }));
+  const eyes = [-0.42, 0.42].map((x) => {
+    const e = new THREE.Group();
+    e.add(mesh(new THREE.BoxGeometry(0.22, 0.32, 0.05), ink, { cast: false }));
+    e.add(mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), shine, { x: 0.05, y: 0.08, z: 0.035, cast: false }));
+    return at(e, x, 1.34, 0.69);
+  });
+  g.add(...eyes);
+  for (const x of [-0.74, 0.74]) g.add(mesh(new THREE.BoxGeometry(0.24, 0.11, 0.03), cheek, { x, y: 1.1, z: 0.69, cast: false }));
+  g.add(mesh(new THREE.BoxGeometry(0.16, 0.05, 0.03), ink, { y: 1.08, z: 0.69, cast: false }));
   // A spark floating overhead: eight rays around a bright core, turning slowly
   const spark = new THREE.Group();
   const glow = new THREE.MeshStandardMaterial({ color: "#ffe9d6", emissive: "#ff9a5c", emissiveIntensity: 1.1, roughness: 0.3 });
@@ -358,60 +394,79 @@ function critter() {
   spark.position.y = 3.05;
   g.add(spark);
   g.userData.spin = spark;
+  g.userData.eyes = eyes;
   g.scale.setScalar(1.2);
   return g;
 }
 
 function codexCloud() {
-  // Blue-violet cloud for Codex, with a >_ face
+  // Lavender cloud for Codex: puffs with lighter tops, a little terminal screen for a face (>_ with a blinking cursor),
+  // rosy cheeks either side
   const g = new THREE.Group();
-  const cloud = new THREE.MeshStandardMaterial({ color: "#8b88ff", emissive: "#5b4dff", emissiveIntensity: 0.35, roughness: 0.45 });
-  for (const [x, y, z, r] of [[0, 1.6, 0, 1.05], [0.95, 1.35, 0, 0.78], [-0.95, 1.35, 0.05, 0.8], [0.4, 2.25, -0.1, 0.72], [-0.45, 2.15, 0.15, 0.68], [0, 1.25, 0.45, 0.72], [0.1, 1.5, -0.5, 0.75]]) {
-    g.add(mesh(new THREE.SphereGeometry(r, 28, 20), cloud, { x, y, z }));
+  const cloud = new THREE.MeshStandardMaterial({ color: "#8b88ff", emissive: "#5b4dff", emissiveIntensity: 0.28, roughness: 0.5 });
+  const light = new THREE.MeshStandardMaterial({ color: "#aeabff", emissive: "#6b5dff", emissiveIntensity: 0.22, roughness: 0.5 });
+  for (const [x, y, z, r, top] of [[0, 1.6, 0, 1.05], [0.95, 1.35, 0, 0.78], [-0.95, 1.35, 0.05, 0.8], [0.4, 2.25, -0.1, 0.72, 1], [-0.45, 2.15, 0.15, 0.68, 1], [0, 1.25, 0.45, 0.72], [0.1, 1.5, -0.5, 0.75], [0.05, 2.5, 0.25, 0.42, 1], [1.45, 1.15, 0.2, 0.42], [-1.45, 1.15, 0.15, 0.44]]) {
+    g.add(mesh(new THREE.SphereGeometry(r, 28, 20), top ? light : cloud, { x, y, z }));
   }
-  const face = new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#ffffff", emissiveIntensity: 0.8 });
+  const screen = new THREE.Group();
+  screen.add(mesh(rbox(1.2, 0.66, 0.12, 0.2), mat("#29245e", { rough: 0.3, snow: 0 }), { cast: false }));
+  const face = new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#ffffff", emissiveIntensity: 0.9 });
   const chevron = new THREE.Group();
   for (const s of [1, -1]) {
-    const bar = mesh(rbox(0.13, 0.42, 0.08, 0.04), face, { x: 0, y: s * 0.12, cast: false });
+    const bar = mesh(rbox(0.11, 0.34, 0.06, 0.04), face, { y: s * 0.1, cast: false });
     bar.rotation.z = s * 0.75;
     chevron.add(bar);
   }
-  chevron.position.set(-0.28, 1.62, 1.12);
-  g.add(chevron);
-  g.add(mesh(rbox(0.42, 0.11, 0.08, 0.04), face, { x: 0.25, y: 1.42, z: 1.1, cast: false }));
+  chevron.position.set(-0.26, 0.04, 0.07);
+  screen.add(chevron);
+  const cursor = mesh(rbox(0.34, 0.09, 0.06, 0.03), face, { x: 0.22, y: -0.13, z: 0.07, cast: false });
+  screen.add(cursor);
+  screen.position.set(0, 1.48, 1.16);
+  screen.rotation.x = -0.18;
+  g.add(screen);
+  for (const s of [-1, 1]) g.add(at(blush(0.14), s * 0.8, 1.3, 0.8, s * 0.45));
+  g.userData.cursor = cursor;
   return g;
 }
 
 function deepseekWhale() {
-  // Blue whale for DeepSeek
+  // Blue whale for DeepSeek: a pale belly, eyes with catchlights, rosy cheeks, a smile, a small dorsal fin and a spout
   const g = new THREE.Group();
-  const blue = new THREE.MeshStandardMaterial({ color: "#4d6bfe", roughness: 0.45 });
-  const belly = new THREE.MeshStandardMaterial({ color: "#dfe6ff", roughness: 0.6 });
+  const blue = new THREE.MeshStandardMaterial({ color: "#4d6bfe", roughness: 0.42 });
+  const belly = new THREE.MeshStandardMaterial({ color: "#e3e9ff", roughness: 0.6 });
   const body = mesh(new THREE.SphereGeometry(1, 32, 24), blue, { y: 1.45 });
   body.scale.set(1.55, 0.95, 1.0);
   g.add(body);
   const b = mesh(new THREE.SphereGeometry(1, 28, 18), belly, { y: 1.2, z: 0.12 });
   b.scale.set(1.3, 0.62, 0.86);
   g.add(b);
+  // Fluke: two rounded lobes on a short stock
   const tail = new THREE.Group();
+  tail.add(mesh(new THREE.CylinderGeometry(0.16, 0.3, 0.5, 12), blue, { y: -0.1 }));
   for (const s of [-1, 1]) {
-    const fin = mesh(new THREE.SphereGeometry(0.5, 16, 10), blue, { x: -0.25, y: 0.25, z: s * 0.32 });
-    fin.scale.set(0.9, 0.2, 0.55);
-    fin.rotation.x = s * 0.5;
+    const fin = mesh(new THREE.SphereGeometry(0.5, 18, 12), blue, { x: -0.05, y: 0.25, z: s * 0.36 });
+    fin.scale.set(0.75, 0.16, 0.62);
+    fin.rotation.x = s * 0.35;
     tail.add(fin);
   }
-  tail.position.set(-1.6, 1.75, 0);
-  tail.rotation.z = 0.6;
+  tail.position.set(-1.62, 1.72, 0);
+  tail.rotation.z = 0.7;
   g.add(tail);
+  const dorsal = mesh(new THREE.ConeGeometry(0.22, 0.42, 10), blue, { x: -0.55, y: 2.35, z: 0 });
+  dorsal.scale.z = 0.35;
+  dorsal.rotation.z = 0.5;
+  g.add(dorsal);
   for (const s of [-1, 1]) {
     const flipper = mesh(new THREE.SphereGeometry(0.4, 14, 10), blue, { x: 0.35, y: 1.0, z: s * 0.95 });
     flipper.scale.set(0.9, 0.2, 0.6);
+    flipper.rotation.x = s * 0.4;
     g.add(flipper);
   }
-  const eyeMat = new THREE.MeshStandardMaterial({ color: "#14182e", roughness: 0.2 });
+  const eyes = [-1, 1].map((s) => at(eye(0.13, 0.4), 0.95, 1.62, s * 0.76, s > 0 ? 0.35 : Math.PI - 0.35));
+  g.add(...eyes);
   for (const s of [-1, 1]) {
-    g.add(mesh(new THREE.SphereGeometry(0.12, 12, 10), eyeMat, { x: 0.95, y: 1.6, z: s * 0.68, cast: false }));
-    g.add(mesh(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshStandardMaterial({ color: "#fff", emissive: "#fff" }), { x: 1.02, y: 1.66, z: s * 0.76, cast: false }));
+    g.add(at(blush(0.13), 1.08, 1.4, s * 0.72, s > 0 ? 0.55 : Math.PI - 0.55));
+    g.add(at(smile(0.26, 0.03), 1.3, 1.32, s * 0.55, s > 0 ? 0.85 : Math.PI - 0.85));
   }
   // Water spout
   const spout = new THREE.Group();
@@ -421,30 +476,47 @@ function deepseekWhale() {
   g.add(spout);
   g.rotation.y = -0.5;
   g.userData.spout = spout;
+  g.userData.eyes = eyes;
   return g;
 }
 
 function serverBot() {
-  // Local/cloud scripts: a little server rack with blinking LEDs
+  // Local/cloud scripts: a little server-rack robot. A face screen up top (glowing eyes, smile, pink cheeks),
+  // rack lights below that blink with work, stubby arms and feet, an antenna
   const g = new THREE.Group();
-  g.add(mesh(rbox(1.5, 2.2, 1.2, 0.12), mat("#3a4352", { rough: 0.5, metal: 0.3 }), { y: 1.25 }));
+  const shell = mat("#4a566c", { rough: 0.45, metal: 0.25 });
+  g.add(mesh(rbox(1.5, 2.2, 1.2, 0.18), shell, { y: 1.25 }));
+  g.add(mesh(rbox(1.56, 0.12, 1.26, 0.05), mat("#5d6a82", { rough: 0.45, metal: 0.25 }), { y: 2.3 }));
+  g.add(mesh(rbox(1.18, 0.7, 0.08, 0.12), mat("#111821", { rough: 0.25, snow: 0 }), { y: 1.86, z: 0.6, cast: false }));
+  const glow = new THREE.MeshStandardMaterial({ color: "#8dffbf", emissive: "#3dff8a", emissiveIntensity: 1.2 });
+  const eyes = [-0.25, 0.25].map((x) => at(mesh(rbox(0.17, 0.24, 0.04, 0.07), glow, { cast: false }), x, 1.94, 0.66));
+  g.add(...eyes);
+  g.add(at(smile(0.2, 0.028, glow), 0, 1.75, 0.66));
+  for (const x of [-0.44, 0.44]) g.add(at(mesh(new THREE.CircleGeometry(0.07, 14), new THREE.MeshBasicMaterial({ color: "#ff8fa3" }), { cast: false }), x, 1.74, 0.645));
   const leds = [];
-  for (let i = 0; i < 5; i++) {
-    const led = mesh(new THREE.BoxGeometry(1.0, 0.09, 0.05), new THREE.MeshStandardMaterial({ color: "#7dffb0", emissive: "#3dff8a", emissiveIntensity: 1 }), { y: 0.65 + i * 0.32, z: 0.61, cast: false });
+  for (let i = 0; i < 3; i++) {
+    const led = mesh(rbox(1.0, 0.1, 0.05, 0.03), new THREE.MeshStandardMaterial({ color: "#7dffb0", emissive: "#3dff8a", emissiveIntensity: 1 }), { y: 0.62 + i * 0.3, z: 0.61, cast: false });
     leds.push(led);
     g.add(led);
   }
-  for (const x of [-0.45, 0.45]) g.add(mesh(rbox(0.32, 0.22, 0.4, 0.06), mat("#2b3240"), { x, y: 0.11 }));
-  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6), mat("#9aa3ad"), { x: 0.4, y: 2.65 }));
-  g.add(mesh(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshStandardMaterial({ color: "#4caf7a", emissive: "#4caf7a", emissiveIntensity: 1 }), { x: 0.4, y: 2.98, cast: false }));
+  for (const s of [-1, 1]) {
+    const arm = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 8), mat("#8a95a6", { metal: 0.4 }), { x: s * 0.85, y: 1.15 });
+    arm.rotation.z = s * 0.35;
+    g.add(arm);
+    g.add(mesh(new THREE.SphereGeometry(0.14, 12, 10), shell, { x: s * 0.95, y: 0.88 }));
+  }
+  for (const x of [-0.45, 0.45]) g.add(mesh(rbox(0.36, 0.22, 0.46, 0.08), mat("#2b3240"), { x, y: 0.11 }));
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55), mat("#9aa3ad"), { x: 0.4, y: 2.62 }));
+  g.add(mesh(new THREE.SphereGeometry(0.11, 12, 10), new THREE.MeshStandardMaterial({ color: "#4caf7a", emissive: "#4caf7a", emissiveIntensity: 1 }), { x: 0.4, y: 2.94, cast: false }));
   g.userData.leds = leds;
+  g.userData.eyes = eyes;
   return g;
 }
 
 function lobster() {
-  // Red lobster for OpenClaw
+  // Red lobster for OpenClaw: shiny eyes on stalks, cheeks, banded tail, big claws
   const g = new THREE.Group();
-  const red = mat("#e0533d", { rough: 0.55 });
+  const red = mat("#e0533d", { rough: 0.5 });
   const dark = mat("#b8392a", { rough: 0.6 });
   const body = mesh(new THREE.SphereGeometry(0.75, 24, 18), red, { y: 1.1 });
   body.scale.set(1.0, 0.75, 1.25);
@@ -477,31 +549,43 @@ function lobster() {
     g.add(claw);
     claws.push(claw);
   }
+  const eyes = [];
   for (const s of [-1, 1]) {
     g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 6), dark, { x: s * 0.25, y: 1.6, z: 0.75 }));
-    g.add(mesh(new THREE.SphereGeometry(0.09, 10, 8), mat("#1d1d1f", { snow: 0 }), { x: s * 0.25, y: 1.82, z: 0.78, cast: false }));
+    eyes.push(at(eye(0.1, 0.9), s * 0.25, 1.84, 0.8));
+    g.add(at(blush(0.12), s * 0.45, 1.18, 0.98, s * 0.4));
     for (const z of [-0.3, 0.1, 0.5]) {
       const leg = mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6, 6), dark, { x: s * 0.85, y: 0.55, z });
       leg.rotation.z = s * 0.9;
       g.add(leg);
     }
   }
+  g.add(...eyes);
   g.userData.claws = claws;
+  g.userData.eyes = eyes;
   return g;
 }
 
 function robot(color = "#c9a227") {
-  // Round little robot for anything custom (webhook reports)
+  // Round little robot for anything custom (webhook reports): a dark face with glowing eyes, a smile and cheeks, little ears
   const g = new THREE.Group();
-  const shell = mat(color, { rough: 0.45, metal: 0.1 });
+  const shell = mat(color, { rough: 0.4, metal: 0.1 });
   g.add(mesh(new THREE.SphereGeometry(1.0, 32, 24), shell, { y: 1.35 }));
-  const face = mesh(new THREE.CircleGeometry(0.62, 32), new THREE.MeshStandardMaterial({ color: "#1f2633", roughness: 0.3 }), { y: 1.42, z: 0.97, cast: false });
-  g.add(face);
+  g.add(mesh(new THREE.CircleGeometry(0.62, 32), new THREE.MeshStandardMaterial({ color: "#1f2633", roughness: 0.3 }), { y: 1.42, z: 0.97, cast: false }));
   const glow = new THREE.MeshStandardMaterial({ color: "#9ff3ff", emissive: "#5ee6ff", emissiveIntensity: 1 });
-  for (const x of [-0.22, 0.22]) g.add(mesh(new THREE.CircleGeometry(0.1, 16), glow, { x, y: 1.5, z: 0.985, cast: false }));
+  const eyes = [-0.22, 0.22].map((x) => at(mesh(new THREE.CircleGeometry(0.1, 16), glow, { cast: false }), x, 1.52, 0.985));
+  g.add(...eyes);
+  g.add(at(smile(0.2, 0.026, glow), 0, 1.3, 0.985));
+  for (const x of [-0.4, 0.4]) g.add(at(mesh(new THREE.CircleGeometry(0.07, 14), new THREE.MeshBasicMaterial({ color: "#ff8fa3" }), { cast: false }), x, 1.3, 0.975));
+  for (const s of [-1, 1]) {
+    const ear = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.16, 16), mat("#3a4352"), { x: s * 1.0, y: 1.42 });
+    ear.rotation.z = Math.PI / 2;
+    g.add(ear);
+  }
   g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5), mat("#9aa3ad"), { y: 2.55 }));
   g.add(mesh(new THREE.SphereGeometry(0.11, 12, 10), glow, { y: 2.82, cast: false }));
   for (const x of [-0.45, 0.45]) g.add(mesh(rbox(0.35, 0.3, 0.45, 0.1), mat("#3a4352"), { x, y: 0.2 }));
+  g.userData.eyes = eyes;
   return g;
 }
 
@@ -519,6 +603,8 @@ export function agentPlatform(def) {
   const ring = mesh(new THREE.TorusGeometry(def.radius * 0.6, 0.06, 8, 64), new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.15 }), { y: 0.63, cast: false });
   ring.rotation.x = Math.PI / 2;
   g.add(ring);
+  // A soft round rug in a pale tint of the agent's colour, so each character stands out on its stage
+  g.add(mesh(new THREE.CylinderGeometry(def.radius * 0.5, def.radius * 0.5, 0.02, 56), mat(`#${new THREE.Color(def.color).lerp(new THREE.Color("#ffffff"), 0.72).getHexString()}`, { rough: 0.95 }), { y: 0.63, cast: false }));
   const character = ({ claude: critter, codex: codexCloud, deepseek: deepseekWhale, system: serverBot, openclaw: lobster, custom: robot }[def.kind] || robot)(def.color);
   character.position.y = 0.62;
   g.add(character);
