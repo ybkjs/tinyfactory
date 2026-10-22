@@ -45,7 +45,9 @@ Requires Node.js 20+ and git. Your browser opens `http://127.0.0.1:4520/`.
 | OpenClaw cron jobs | `~/.openclaw/cron/jobs.json` | schedule, consecutive failures, paused |
 | crontab | `crontab -l` | every scheduled command |
 | macOS launchd | `~/Library/LaunchAgents/*.plist` (scheduled ones) | schedule, last exit code |
-| Linux systemd | `systemctl` timers | schedule, next run, runs today, failures |
+| Linux systemd | `systemctl` timers, `journalctl` | schedule, next run, every run, failures |
+| Windows Task Scheduler | PowerShell `Get-ScheduledTask` (Microsoft's own skipped) | schedule, next and last run, last result |
+| GitHub Actions (opt-in) | `gh run list` for the repos in your config | each workflow's runs, failures in a row, what's running |
 | Anything else | `POST /api/event` | whatever you report |
 | tinyfactory on another machine | its `/api/state` | jobs on a server or NAS on the same map (see below) |
 
@@ -125,7 +127,7 @@ Full reference: [docs/config.md](docs/config.md) · a complete example: [example
 
 ## Privacy
 
-Listens on `127.0.0.1` only, uploads nothing, no telemetry, never modifies your jobs. The only outbound request is the weather lookup (your chosen city's coordinates to Open-Meteo). To expose it on a network you must pass `--token`.
+Listens on `127.0.0.1` only, uploads nothing, no telemetry, never modifies your jobs. The only outbound request is the weather lookup (your chosen city's coordinates to Open-Meteo), plus GitHub through your own `gh` if you list repos under `github`. To expose it on a network you must pass `--token`.
 
 ## CLI
 
@@ -159,7 +161,9 @@ Quality is `auto` by default: soft ambient occlusion and tilt-shift, switched of
 
 **Can it show my server's jobs?** Yes: run it there too (localhost, with a token) and bring it over an SSH tunnel, see above.
 
-**Does it change my jobs or send data anywhere?** No. Read-only and local; the only outbound request is the weather.
+**Does it change my jobs or send data anywhere?** No. Read-only and local; the only outbound request is the weather (and GitHub, for repos you list).
+
+**Can I see GitHub Actions?** Add `"github": { "repos": ["you/repo"] }` to the config, with the GitHub CLI (`gh`) installed and logged in. Each workflow is a line, each finished run a parcel, failures go red.
 
 **A detail card has no history.** systemd timers, Codex, OpenClaw and Claude Code sessions bring their past runs; cron
 and launchd keep no run log, so history builds up while the dashboard runs. Webhook lines keep theirs.

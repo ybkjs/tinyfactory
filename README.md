@@ -45,7 +45,9 @@ npx github:ybkjs/tinyfactory --demo     # 先看看演示工厂
 | OpenClaw 定时任务 | `~/.openclaw/cron/jobs.json` | 计划、连续失败次数、已停用 |
 | crontab | `crontab -l` | 每一条定时命令 |
 | macOS launchd | `~/Library/LaunchAgents/*.plist`（带定时的） | 计划、上次退出码 |
-| Linux systemd | `systemctl` 定时器 | 计划、下次运行、今日次数、失败 |
+| Linux systemd | `systemctl` 定时器、`journalctl` | 计划、下次运行、每次运行、失败 |
+| Windows 任务计划 | PowerShell `Get-ScheduledTask`（跳过系统自带的） | 计划、下次和上次运行、上次结果 |
+| GitHub Actions（需开启） | `gh run list`，只看配置里列出的仓库 | 每个工作流的运行、连续失败、正在跑的 |
 | 任何别的东西 | `POST /api/event` | 你上报什么就显示什么 |
 | 另一台机器上的 tinyfactory | 它的 `/api/state` | 服务器、NAS 上的任务汇总到同一张图（见下文） |
 
@@ -139,7 +141,7 @@ ssh -N -L 4525:127.0.0.1:4520 you@your-server
 
 - 只监听 `127.0.0.1`，不上传任何数据，没有统计。
 - 只读：不会修改你的任何任务。
-- 唯一的外部请求是天气：把你选的城市坐标发给 Open-Meteo。
+- 唯一的外部请求是天气：把你选的城市坐标发给 Open-Meteo。如果你在配置里开启了 GitHub Actions，还会通过你本机的 `gh` 查询那几个仓库。
 - 想在局域网或服务器上开放，必须加 `--token`：`npx github:ybkjs/tinyfactory --host 0.0.0.0 --token 你的密码`。
 
 ## 命令行参数
@@ -181,7 +183,9 @@ npx github:ybkjs/tinyfactory doctor    自检：每个来源找到了什么、�
 
 **能看服务器上的任务吗？** 能。服务器上也跑一份（只监听本机、带 token），用 SSH 隧道接到笔记本上，见上文「多台机器汇总到一张图」。
 
-**会改动我的任务吗？会上传数据吗？** 不会。只读、只在本机，唯一的外部请求是天气。
+**会改动我的任务吗？会上传数据吗？** 不会。只读、只在本机，唯一的外部请求是天气（开启 GitHub Actions 时还会查你列出的仓库）。
+
+**想在工厂里看到 GitHub Actions？** 配置里加上 `"github": { "repos": ["你的名字/仓库"] }`，需要先装好并登录 GitHub 命令行 `gh`。每个工作流是一条产线，CI 跑完一次送一个包裹，失败的标红。
 
 **详情卡里没有历史记录？** systemd 定时器、Codex、OpenClaw、Claude 后台会话会自动带出过去的运行；cron 和 launchd 没有运行日志，开着看板一段时间就会攒起来。用 webhook 上报的任务会一直记着。
 

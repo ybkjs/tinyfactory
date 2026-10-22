@@ -44,6 +44,8 @@ Every line has an id of the form `source:name`: `codex:daily-news`, `systemd:bac
 | `lines` | object[] | Jobs this machine can't see, shown as "not connected": `id`, `name`, `factory`, `agent`, `schedule`, `icon`. Add `"live": "<line id>"` and the stand-in disappears once that real line shows up (for example the first webhook report). |
 | `remote` | object[] | Other machines running tinyfactory: `name`, `url`, `token`. Their lines join this map as `remote:<name>:<id>`. See [Several machines](#several-machines). |
 | `systemd` | object | `services`: always-on units to show as live lines (for example a bot). `include`: timers to keep even though they look like distro housekeeping. |
+| `launchd` | object | `include`: labels to keep even though they look like a vendor's updater (`com.google.…`). |
+| `github` | object | `repos`: `["owner/repo"]`. Shows those repositories' GitHub Actions workflows (needs the GitHub CLI, `gh`, logged in; asked at most once a minute). Off unless set: it's the only source that talks to the internet. |
 
 ### Schedules
 

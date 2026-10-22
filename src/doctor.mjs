@@ -16,6 +16,8 @@ const WHERE = {
   cron: async () => [Boolean((await run("crontab", ["-l"]))?.trim()), os === "win32" ? "no crontab on Windows" : "crontab -l is empty"],
   launchd: () => [os === "darwin", "macOS only"],
   systemd: () => [os === "linux", "Linux only"],
+  schtasks: () => [os === "win32", "Windows only"],
+  github: async () => (await run("gh", ["--version"])) ? [false, "no \"github\": { \"repos\": [\"owner/repo\"] } in the config (or gh isn't logged in: gh auth status)"] : [false, "needs the GitHub CLI (gh) and \"github.repos\" in the config"],
   webhook: () => [false, "no reports yet: POST /api/event from any script"],
   remote: () => [false, "no \"remote\" machines in the config"],
   declared: () => [false, "no \"lines\" in the config"]

@@ -116,8 +116,11 @@ export function scheduleText(s) {
     }
     return s.value;
   }
-  return String(s.value ?? "");
+  // Words some sources use (Task Scheduler triggers, GitHub events)
+  const word = String(s.value ?? "");
+  return (lang === "zh" && TEXT_ZH[word]) || word;
 }
+const TEXT_ZH = { "at logon": "登录时", "at startup": "开机时", once: "运行一次", schedule: "定时", "on push": "推送时", "on pull_request": "提 PR 时", "on workflow_dispatch": "手动触发", "on release": "发版时", "on schedule": "定时", trigger: "触发器" };
 
 // next run time → "13:25" / "明天 04:30" / "周日 21:00"
 export function whenText(ms, now = Date.now()) {

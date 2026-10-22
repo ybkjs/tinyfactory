@@ -16,7 +16,8 @@ export const KNOWN_AGENTS = {
   openclaw: { kind: "openclaw", name: "OpenClaw", sub: { zh: "网关", en: "gateway" }, color: "#e0533d" },
   deepseek: { kind: "deepseek", name: "DeepSeek", sub: "API", color: "#4d6bfe" },
   system: { kind: "system", name: { zh: "本机脚本", en: "Local scripts" }, sub: "cron / launchd / systemd", color: "#4caf7a" },
-  custom: { kind: "custom", name: { zh: "自定义", en: "Custom" }, sub: "webhook", color: "#c9a227" }
+  custom: { kind: "custom", name: { zh: "自定义", en: "Custom" }, sub: "webhook", color: "#c9a227" },
+  github: { kind: "custom", name: "GitHub Actions", sub: "CI", color: "#57606a" }
 };
 
 function intervalSeconds(schedule) {

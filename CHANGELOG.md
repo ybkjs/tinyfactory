@@ -13,6 +13,8 @@ Real history from the first look, and a monitor you notice from another tab.
 - **Quick finder**: press `/` or ⌘K (or the search button) and type part of a name; Enter flies to it and opens its detail.
 - **Last 24 hours** on a line's detail: a ruler with a tick for every run (lines that run every few minutes keep just the bars).
 - **Loading screen** while the 3D view gets ready, with a message when the browser can't show WebGL.
+- **Windows Task Scheduler source**: your own scheduled tasks (Microsoft's skipped) through PowerShell, with schedule, next and last run, and the last result.
+- **GitHub Actions source** (opt-in, `"github": { "repos": ["owner/repo"] }`): each workflow is a line, each finished run a parcel, failures in a row go red; asked through your `gh` at most once a minute.
 - **`tinyfactory doctor`** lists what each source found on this machine and why not, checks the config, Node and the port: paste it into an issue.
 - **A broken config is an error**, with the line and column and a pointer, instead of being silently ignored; unknown keys get a "did you mean", wrong types a warning. `--version` prints the version.
 - Reports over 16 KB get a proper `413` instead of a cut connection.

@@ -4,11 +4,12 @@
 sources (src/sources/*.mjs)          collector (src/assemble.mjs)              page (web/)
   claude, codex, openclaw,   ──►  merge groups, apply the config,   ──►  /api/state every few seconds
   cron, launchd, systemd,          turn new runs into events,             → three.js park, parcels,
-  webhook, remote, declared        keep the last 20 runs per line           labels, panel, details
+  schtasks, github, webhook,       keep the last 20 runs per line           labels, panel, details
+  remote, declared
 ```
 
 **Principles.** Read-only: tinyfactory never changes a job. Local: it listens on `127.0.0.1` and the only outbound
-request is the weather. No telemetry. One runtime dependency (three.js). A source is a single small file.
+request is the weather (plus GitHub, only for repos the user lists). No telemetry. One runtime dependency (three.js). A source is a single small file.
 
 ## Sources
 
@@ -46,7 +47,7 @@ export async function collect(ctx) {
 - Add the module to `SOURCES` in `src/collect.mjs`, a "why nothing" hint to `WHERE` in `src/doctor.mjs`, a fixture
   under `test/fixtures/home` and a test in `test/sources.test.mjs`.
 
-Good next sources: GitHub Actions, n8n, Cursor background agents, Windows Task Scheduler, Home Assistant automations.
+Good next sources: n8n, Cursor background agents, Home Assistant automations, GitLab CI. `schtasks.mjs` (parsing PowerShell JSON) and `github.mjs` (an opt-in source that shells out to a CLI and caches) are short examples to start from.
 
 ## The collector
 

@@ -1,7 +1,7 @@
 {
   "name": "tinyfactory",
   "version": "0.3.0",
-  "description": "Watch your AI agent automations run as a cozy 3D miniature factory. Auto-discovers Claude Code, Codex, OpenClaw, cron, launchd and systemd jobs.",
+  "description": "Watch your AI agent automations run as a cozy 3D miniature factory. Auto-discovers Claude Code, Codex, OpenClaw, cron, launchd, systemd and Windows Task Scheduler jobs, plus GitHub Actions.",
   "type": "module",
   "bin": {
     "tinyfactory": "bin/tinyfactory.mjs"
@@ -37,6 +37,10 @@
     "codex",
     "openclaw",
     "cron",
+    "github-actions",
+    "task-scheduler",
+    "systemd",
+    "launchd",
     "three.js",
     "isometric",
     "visualization"
