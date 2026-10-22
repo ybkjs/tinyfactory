@@ -65,7 +65,7 @@ canvas#scene:active { cursor: grabbing; }
 .toolbar { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; z-index: 10; }
 /* Three groups: camera · what's shown · share */
 .toolbar > button.group-end { margin-right: 12px; }
-.toolbar > button { width: 64px; height: 58px; border: 0; border-radius: 16px; background: var(--card); box-shadow: 0 6px 20px rgba(40, 30, 10, 0.13); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #4a463f; cursor: pointer; font-family: inherit; transition: transform 0.12s, background 0.2s; }
+.toolbar > button { min-width: 64px; padding: 0 8px; white-space: nowrap; height: 58px; border: 0; border-radius: 16px; background: var(--card); box-shadow: 0 6px 20px rgba(40, 30, 10, 0.13); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #4a463f; cursor: pointer; font-family: inherit; transition: transform 0.12s, background 0.2s; }
 .toolbar > button:hover { transform: translateY(-2px); background: #fffdf8; }
 .toolbar > button.off { color: #b0a99f; }
 .toolbar svg { width: 21px; height: 21px; }
@@ -128,7 +128,7 @@ canvas#scene:active { cursor: grabbing; }
   .panel { display: none; }
   body.sheet .panel { display: block; background: #fbf8f2; top: auto; left: 12px; right: 12px; bottom: 76px; width: auto; max-height: 56vh; z-index: 15; box-shadow: 0 -4px 30px rgba(40, 30, 10, 0.18); }
   .toolbar { bottom: 14px; gap: 7px; }
-  .toolbar > button { width: 44px; height: 44px; border-radius: 14px; }
+  .toolbar > button { width: 44px; min-width: 44px; padding: 0; height: 44px; border-radius: 14px; }
   .toolbar > button span, .toolbar > .wide-only { display: none; }
   .toolbar > button.group-end { margin-right: 6px; }
   .toolbar > button:hover { transform: none; }
