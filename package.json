@@ -56,7 +56,7 @@
     "url": "https://github.com/ybkjs/tinyfactory/issues"
   },
   "dependencies": {
-    "three": "0.170.0"
+    "three": "0.186.1"
   },
   "devDependencies": {
     "puppeteer-core": "^23.11.1"
