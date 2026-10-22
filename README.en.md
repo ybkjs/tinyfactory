@@ -134,7 +134,7 @@ A source is one file in `src/sources/` exporting `collect(ctx)` that returns `{ 
 ## Develop
 
 ```bash
-git clone https://github.com/bai-429/tinyfactory && cd tinyfactory
+git clone https://github.com/ybkjs/tinyfactory && cd tinyfactory
 npm install && npm run demo
 npm test
 ```

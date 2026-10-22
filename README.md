@@ -170,7 +170,7 @@ export async function collect(ctx) {
 ## 开发
 
 ```bash
-git clone https://github.com/bai-429/tinyfactory && cd tinyfactory
+git clone https://github.com/ybkjs/tinyfactory && cd tinyfactory
 npm install
 npm run demo        # 演示模式
 npm test            # 测试

@@ -36,15 +36,15 @@
     "isometric",
     "visualization"
   ],
-  "author": "bai-429",
+  "author": "ybkjs",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bai-429/tinyfactory.git"
+    "url": "git+https://github.com/ybkjs/tinyfactory.git"
   },
-  "homepage": "https://github.com/bai-429/tinyfactory#readme",
+  "homepage": "https://github.com/ybkjs/tinyfactory#readme",
   "bugs": {
-    "url": "https://github.com/bai-429/tinyfactory/issues"
+    "url": "https://github.com/ybkjs/tinyfactory/issues"
   },
   "dependencies": {
     "three": "0.170.0"
