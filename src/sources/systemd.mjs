@@ -1,6 +1,6 @@
 // Linux systemd timers (plus always-on services listed in config.systemd.services). Distro housekeeping timers are skipped.
 import { platform } from "node:os";
-import { run, startOfToday } from "../util.mjs";
+import { run } from "../util.mjs";
 
 export const id = "systemd";
 const HOUSEKEEPING = /^(systemd-|apt-|dpkg-|man-db|logrotate|fstrim|e2scrub|motd-news|dnf-|fwupd|snapd|update-notifier|plocate|mlocate|unbound-|raid-check|sysstat|ua-|phpsessionclean|anacron|atop|pmlogger|pmie|sa-update|mdcheck|apport|exim|clamav|certbot)/;
@@ -39,7 +39,8 @@ export function timerSchedule(t) {
 async function todayCount(unit) {
   const cached = journalCache.get(unit);
   if (cached && Date.now() - cached.at < 60000) return cached.n;
-  const out = await run("journalctl", ["-u", unit, "--since", new Date(startOfToday()).toISOString().slice(0, 19).replace("T", " "), "-o", "cat", "--no-pager"], { timeout: 8000 });
+  // "today" = local midnight as journalctl sees it (an ISO string would be read as local time and shift by the UTC offset)
+  const out = await run("journalctl", ["-u", unit, "--since", "today", "-o", "cat", "--no-pager"], { timeout: 8000 });
   const n = out ? (out.match(/^Finished /gm) || out.match(/Deactivated successfully/g) || []).length : 0;
   journalCache.set(unit, { n, at: Date.now() });
   return n;

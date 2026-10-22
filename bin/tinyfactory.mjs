@@ -55,8 +55,9 @@ try {
 }
 
 const url = `http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${port}/${token ? `?token=${token}` : ""}`;
+const shown = token ? url.replace(token, "<token>") : url;  // keep the token out of logs
 const s = collector.state;
-console.log(`\n  🏭 tinyfactory ${version}${demo ? " (demo)" : ""}\n  ${url}\n`);
+console.log(`\n  🏭 tinyfactory ${version}${demo ? " (demo)" : ""}\n  ${shown}\n`);
 console.log(`  ${s.factories.length} factories · ${s.factories.reduce((n, f) => n + f.lines.length, 0)} lines · ${s.agents.length} agents`);
 if (!demo && !s.factories.length) console.log("  Nothing found yet. Try --demo, or report runs from any script:");
 console.log(`  curl -X POST ${url.replace(/\/(\?.*)?$/, "")}/api/event -H 'content-type: application/json' -d '{"line":"backup","status":"done"}'\n`);
