@@ -26,7 +26,7 @@ const T = {
     allTasks: "全部任务", status: "状态", lastRun: "上次运行", nextRun: "下次运行", todayRuns: "今日", timesN: (n) => `${n} 次`,
     recentRuns: (n) => `最近 ${n} 次`, successRate: "成功率", noRuns: "还没有运行记录", latest: "最新", busyNow: "正在处理", linesHere: "负责的产线",
     hubTitle: "中台", hubText: "所有产线的包裹先送到这里分拣，再交给对应的 agent。", activity: "最近动态", noActivity: "新的运行会出现在这里",
-    justNow: "刚刚", minAgo: (n) => `${n} 分钟前`, hourAgo: (n) => `${n} 小时前`, dayAgo: (n) => `${n} 天前`, yesterday: "昨天", today2: "今天", agentsN: (n) => `${n} 个 agent`, linesWord: "产线", failedRun: "失败"
+    justNow: "刚刚", minAgo: (n) => `${n} 分钟前`, hourAgo: (n) => `${n} 小时前`, dayAgo: (n) => `${n} 天前`, yesterday: "昨天", today2: "今天", agentsN: (n) => `${n} 个 agent`, linesWord: "产线", failedRun: "失败", find: "查找产线或 agent", findHint: "↑↓ 选择 · 回车打开 · Esc 关闭", noMatch: "没有找到", last24h: "最近 24 小时", now: "现在"
   },
   en: {
     title: "Automation monitor", live: "Live · refreshes every 10s", demo: "Demo · parcels are simulated", stale: "Some sources unreachable",
@@ -50,7 +50,7 @@ const T = {
     allTasks: "All tasks", status: "Status", lastRun: "Last run", nextRun: "Next run", todayRuns: "Today", timesN: (n) => `${n} run${n === 1 ? "" : "s"}`,
     recentRuns: (n) => `Last ${n} runs`, successRate: "Success", noRuns: "No runs recorded yet", latest: "latest", busyNow: "Working on", linesHere: "Lines",
     hubTitle: "Hub", hubText: "Every line sends its parcels here to be sorted and handed to the right agent.", activity: "Activity", noActivity: "New runs show up here",
-    justNow: "just now", minAgo: (n) => `${n} min ago`, hourAgo: (n) => `${n} h ago`, dayAgo: (n) => `${n} d ago`, yesterday: "yesterday", today2: "today", agentsN: (n) => `${n} agent${n === 1 ? "" : "s"}`, linesWord: "Lines", failedRun: "failed"
+    justNow: "just now", minAgo: (n) => `${n} min ago`, hourAgo: (n) => `${n} h ago`, dayAgo: (n) => `${n} d ago`, yesterday: "yesterday", today2: "today", agentsN: (n) => `${n} agent${n === 1 ? "" : "s"}`, linesWord: "Lines", failedRun: "failed", find: "Find a line or agent", findHint: "↑↓ choose · Enter open · Esc close", noMatch: "Nothing found", last24h: "Last 24 hours", now: "now"
   }
 };
 

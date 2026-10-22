@@ -108,6 +108,7 @@ Line ids look like `source:name` (e.g. `codex:daily-news`, `systemd:backup`).
 - **Labels in three steps**: by default only lines that are running, online or need attention carry a label; the Labels button switches to all, then off.
 - **Share poster**: the Share button turns the current view into a poster with a title, the date and today's numbers; phones open the system share sheet.
 - **Visible from a background tab**: when a line needs attention the tab title reads "(1) …" and the icon gets a red dot.
+- **Quick finder**: press `/` or ⌘K (or tap search on phones), type part of a name, Enter flies there.
 - **Keys**: H home, ← → turn, + − zoom, L labels, T task list, Esc closes a detail.
 - Drag to rotate, right-drag to pan, scroll or pinch to zoom; click a line in the list to fly to it.
 

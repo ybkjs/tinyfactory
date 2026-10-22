@@ -13,7 +13,8 @@ const ICONS = {
   tag: '<path d="M4 6h10l6 6-6 6H4z"/>',
   list: '<path d="M5 7h14M5 12h14M5 17h9"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
-  share: '<path d="M12 4v11M7.5 8.5L12 4l4.5 4.5"/><path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>'
+  share: '<path d="M12 4v11M7.5 8.5L12 4l4.5 4.5"/><path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>'
 };
 // Keyboard shortcuts shown in the button tooltips (handled in main.js)
 const KEYS = { reset: "H", left: "←", right: "→", in: "+", out: "−", labels: "L", panel: "T" };
@@ -27,6 +28,14 @@ export function createUI({ onTool, cities }) {
     <div class="card brand">
       <div class="brand-icon">🏭</div>
       <div><div class="brand-title" id="brand-title">tinyfactory · ${t("title")}</div><div class="brand-sub"><i class="dot live"></i><span id="mode">${t("live")}</span></div></div>
+      <button class="brand-search" id="open-finder" title="${t("find")} (/)" aria-label="${t("find")}">${icon("search")}</button>
+    </div>
+    <div class="finder" id="finder" hidden>
+      <div class="card finder-box">
+        <div class="finder-input">${icon("search")}<input id="finder-input" type="search" autocomplete="off" spellcheck="false" placeholder="${t("find")}"></div>
+        <div class="finder-list" id="finder-list"></div>
+        <div class="finder-hint">${t("findHint")}</div>
+      </div>
     </div>
     <div class="card stats">
       <div><b id="s-running" class="c-running">0</b><span>${t("running")}</span></div>
@@ -88,7 +97,43 @@ export function createUI({ onTool, cities }) {
   $("#feed").addEventListener("click", (e) => { const row = e.target.closest("[data-line]"); if (row) onTool("pick", `line:${row.dataset.line}`); });
   // Labels in the scene are clickable too
   $("#labels").addEventListener("click", (e) => { const tag = e.target.closest("[data-pick]"); if (tag) onTool("pick", tag.dataset.pick); });
-  addEventListener("keydown", (e) => { if (e.key === "Escape" && selected) select(null); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && selected && finder.hidden) select(null); });
+
+  // Quick finder: type part of a name, Enter flies to it
+  const finder = $("#finder"), input = $("#finder-input"), results = $("#finder-list");
+  let found = [], cursor = 0;
+  function openFinder() {
+    if (!last?.factories.length) return;
+    finder.hidden = false;
+    input.value = "";
+    search();
+    input.focus();
+  }
+  const closeFinder = () => { finder.hidden = true; input.blur(); };
+  function search() {
+    const q = input.value.trim().toLowerCase();
+    const both = (n) => (n && typeof n === "object" ? `${n.zh || ""} ${n.en || ""}` : String(n ?? "")).toLowerCase();
+    const items = [
+      ...last.factories.flatMap((f) => f.lines.map((l) => ({ key: `line:${l.id}`, name: nameOf(l.name), sub: nameOf(f.name), dot: l.status === "scheduled" ? "hollow" : l.status, text: `${both(l.name)} ${l.id} ${both(f.name)}` }))),
+      ...last.agents.map((a) => ({ key: `agent:${a.id}`, name: nameOf(a.name), sub: "Agent", sq: a.color, text: `${both(a.name)} ${a.id}` }))
+    ];
+    found = (q ? items.filter((it) => it.text.toLowerCase().includes(q)) : items).slice(0, 8);
+    cursor = 0;
+    paint();
+  }
+  function paint() {
+    results.innerHTML = found.length ? found.map((it, i) => `<div class="finder-row${i === cursor ? " on" : ""}" data-i="${i}">${it.sq ? `<i class="sq" style="background:${it.sq}"></i>` : `<i class="dot ${it.dot}"></i>`}<b>${esc(it.name)}</b><span>${esc(it.sub)}</span></div>`).join("") : `<div class="finder-empty">${t("noMatch")}</div>`;
+  }
+  const choose = (i) => { const it = found[i]; if (!it) return; closeFinder(); onTool("pick", it.key); };
+  input.addEventListener("input", search);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); cursor = (cursor + (e.key === "ArrowDown" ? 1 : -1) + found.length) % Math.max(1, found.length); paint(); }
+    else if (e.key === "Enter") { e.preventDefault(); choose(cursor); }
+    else if (e.key === "Escape") { e.preventDefault(); closeFinder(); }
+  });
+  results.addEventListener("click", (e) => { const row = e.target.closest("[data-i]"); if (row) choose(Number(row.dataset.i)); });
+  finder.addEventListener("click", (e) => { if (e.target === finder) closeFinder(); });
+  $("#open-finder").addEventListener("click", openFinder);
 
   let selected = null, last = null;
   function select(sel) {
@@ -212,6 +257,7 @@ export function createUI({ onTool, cities }) {
         </div>
         <div class="runs-head"><span>${esc(t("recentRuns", Math.min(20, runs.length) || 20))}</span>${runs.length ? `<span>${t("successRate")} ${Math.round((ok / runs.length) * 100)}%</span>` : ""}</div>
         ${runs.length ? `<div class="runs">${bars}</div><div class="runs-axis"><span>${esc(pastText(runs[Math.max(0, runs.length - 20)].at))}</span><span>${t("latest")}</span></div>` : `<div class="muted runs-empty">${t("noRuns")}</div>`}
+        ${timeline(l, runs)}
         ${l.description ? `<p class="detail-desc">${esc(l.description)}</p>` : ""}
         <code class="line-id">${esc(l.id)}</code>`;
     }
@@ -255,6 +301,22 @@ export function createUI({ onTool, cities }) {
     return null;
   }
 
+  // When it ran over the last 24 hours, as ticks on a ruler (skipped for lines that run every few minutes: the bars say it all)
+  function timeline(l, runs) {
+    const now = Date.now(), from = now - 86400000;
+    const recent = runs.filter((r) => r.at > from);
+    const frequent = l.schedule?.type === "interval" && l.schedule.value <= 600;
+    if (!recent.length || frequent) return "";
+    const ticks = recent.map((r) => `<i class="${r.ok ? "ok" : "bad"}" style="left:${(((r.at - from) / 86400000) * 100).toFixed(2)}%" title="${esc(pastText(r.at))}"></i>`).join("");
+    // Faint marks every six hours of the clock
+    const marks = [];
+    const d = new Date(from);
+    d.setMinutes(0, 0, 0);
+    while (d.getTime() < now) { d.setHours(d.getHours() + 1); if (d.getHours() % 6 === 0 && d.getTime() < now) marks.push(`<b style="left:${(((d.getTime() - from) / 86400000) * 100).toFixed(2)}%"><span>${String(d.getHours()).padStart(2, "0")}:00</span></b>`); }
+    return `<div class="runs-head"><span>${t("last24h")}</span><span>${esc(t("timesN", recent.length))}</span></div>
+      <div class="timeline">${marks.join("")}<b class="now" style="left:100%"><span>${t("now")}</span></b>${ticks}</div>`;
+  }
+
   // The latest runs, newest first
   function feedRows(state, n) {
     const lineById = new Map(state.factories.flatMap((f) => f.lines.map((l) => [l.id, l])));
@@ -284,5 +346,5 @@ export function createUI({ onTool, cities }) {
     $("#c-weather").textContent = weather ? `${weather.emoji} ${city} · ${weather.text}${weather.temp !== undefined ? ` ${Math.round(weather.temp)}°` : ""}` : city;
   }
 
-  return { render, renderClock, setCity, label, labelEls, select, get selected() { return selected; } };
+  return { render, renderClock, setCity, label, labelEls, select, openFinder, get selected() { return selected; } };
 }

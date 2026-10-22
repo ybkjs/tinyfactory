@@ -183,17 +183,46 @@ export function labelTexture(text, { bg = "#fff8ec", fg = "#3a3530", width = 512
 }
 
 /* ---------- Snow: patch materials so upward faces turn white as snow builds up ---------- */
-export const weatherUniforms = { snow: { value: 0 }, wet: { value: 0 } };
+// Soft blobs for cloud shadows drifting over the park (tiles seamlessly; main.js scrolls it and sets the strength)
+function cloudTexture() {
+  // Its own random sequence, so adding clouds doesn't move a single tree of the seeded park
+  let seed = 7;
+  const rand = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const range = (a, b) => a + (b - a) * rand();
+  return canvasTexture(256, (ctx, s) => {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 9; i++) {
+      const x = rand() * s, y = rand() * s, r = range(28, 62);
+      // Draw each blob in the 9 tiles around, so it wraps across the edges
+      for (const dx of [-s, 0, s]) for (const dy of [-s, 0, s]) {
+        for (let k = 0; k < 5; k++) {
+          const cx = x + dx + range(-r, r) * 0.6, cy = y + dy + range(-r, r) * 0.4, cr = r * range(0.5, 0.9);
+          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
+          g.addColorStop(0, "rgba(255,255,255,0.55)");
+          g.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.fillStyle = g;
+          ctx.fillRect(cx - cr, cy - cr, cr * 2, cr * 2);
+        }
+      }
+    }
+  }, { srgb: false });
+}
+export const weatherUniforms = { snow: { value: 0 }, wet: { value: 0 }, cloudMap: { value: typeof document === "undefined" ? null : cloudTexture() }, cloudOffset: { value: new THREE.Vector2() }, cloudStrength: { value: 0 } };
 export function snowy(material, strength = 1) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uSnow = weatherUniforms.snow;
     shader.uniforms.uSnowStrength = { value: strength };
+    shader.uniforms.uCloudMap = weatherUniforms.cloudMap;
+    shader.uniforms.uCloudOffset = weatherUniforms.cloudOffset;
+    shader.uniforms.uCloudStrength = weatherUniforms.cloudStrength;
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vSnowNormal;")
-      .replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\nvSnowNormal = normalize(mat3(modelMatrix) * objectNormal);\n#ifdef USE_INSTANCING\nvSnowNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);\n#endif");
+      .replace("#include <common>", "#include <common>\nvarying vec3 vSnowNormal;\nvarying vec2 vCloudUv;")
+      .replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\nvSnowNormal = normalize(mat3(modelMatrix) * objectNormal);\n#ifdef USE_INSTANCING\nvSnowNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);\n#endif")
+      .replace("#include <project_vertex>", "#include <project_vertex>\nvec4 cloudWorld = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\ncloudWorld = instanceMatrix * cloudWorld;\n#endif\ncloudWorld = modelMatrix * cloudWorld;\nvCloudUv = cloudWorld.xz * 0.011;");
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vSnowNormal;\nuniform float uSnow;\nuniform float uSnowStrength;")
-      .replace("#include <color_fragment>", "#include <color_fragment>\nfloat snowMask = smoothstep(0.35, 0.8, vSnowNormal.y) * uSnow * uSnowStrength;\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 1.0), snowMask);");
+      .replace("#include <common>", "#include <common>\nvarying vec3 vSnowNormal;\nvarying vec2 vCloudUv;\nuniform float uSnow;\nuniform float uSnowStrength;\nuniform sampler2D uCloudMap;\nuniform vec2 uCloudOffset;\nuniform float uCloudStrength;")
+      .replace("#include <color_fragment>", "#include <color_fragment>\nfloat snowMask = smoothstep(0.35, 0.8, vSnowNormal.y) * uSnow * uSnowStrength;\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 1.0), snowMask);\nif (uCloudStrength > 0.001) diffuseColor.rgb *= 1.0 - texture2D(uCloudMap, vCloudUv + uCloudOffset).r * uCloudStrength;");
   };
   material.customProgramCacheKey = () => `snowy-${strength}`;
   return material;

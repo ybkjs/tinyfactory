@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { nameOf } from "./i18n.js";
-import { boxTexture, brickTexture, canvasTexture, gableGeometry, labelTexture, mat, mesh, radialTileTexture, range, rbox, shingleTexture, tileTexture } from "./util.js";
+import { boxTexture, brickTexture, canvasTexture, gableGeometry, labelTexture, mat, mesh, radialTileTexture, range, rbox, shingleTexture, snowy, tileTexture } from "./util.js";
 
 const WHITE = "#f4efe6";
 const GLASS = "#3b5170";
@@ -210,7 +210,7 @@ export function factory(def) {
   const tiles = tileTexture({ home: "#e6d3b3", studio: "#d7dde6", shop: "#dcc2a0" }[def.building] || "#dcc2a0");
   tiles.repeat.set(def.w / 3, def.d / 3);
   tiles.userData.bump.repeat.copy(tiles.repeat);
-  g.add(mesh(rbox(def.w, 0.3, def.d, 0.12), new THREE.MeshStandardMaterial({ map: tiles, bumpMap: tiles.userData.bump, bumpScale: 1.4, roughness: 0.9 }), { y: 0.15 }));
+  g.add(mesh(rbox(def.w, 0.3, def.d, 0.12), snowy(new THREE.MeshStandardMaterial({ map: tiles, bumpMap: tiles.userData.bump, bumpScale: 1.4, roughness: 0.9 }), 0.8), { y: 0.15 }));
   // Low railing around the yard
   const rail = mat("#c8bfb2");
   for (const sz of [-1, 1]) g.add(mesh(rbox(def.w - 0.4, 0.22, 0.12, 0.05), rail, { y: 0.41, z: sz * (def.d / 2 - 0.15) }));
@@ -271,7 +271,8 @@ export function hub(def) {
   const g = new THREE.Group();
   g.position.set(def.x, 0, def.z);
   const plaza = radialTileTexture("#e7e5df");
-  const top = new THREE.MeshStandardMaterial({ map: plaza, bumpMap: plaza.userData.bump, bumpScale: 1.2, roughness: 0.9 });
+  // Paving takes snow and cloud shadows like the lawn around it
+  const top = snowy(new THREE.MeshStandardMaterial({ map: plaza, bumpMap: plaza.userData.bump, bumpScale: 1.2, roughness: 0.9 }), 0.8);
   const side = mat("#cfcbc2");
   g.add(mesh(new THREE.CylinderGeometry(def.radius, def.radius + 0.1, 0.32, 72), [side, top, side], { y: 0.16 }));
   // Arched windows around the wall
@@ -594,11 +595,11 @@ export function agentPlatform(def) {
   const g = new THREE.Group();
   g.position.set(def.x, 0, def.z);
   const plaza = radialTileTexture("#e9e8e4", { rings: 7 });
-  const top = new THREE.MeshStandardMaterial({ map: plaza, bumpMap: plaza.userData.bump, bumpScale: 1.2, roughness: 0.9 });
+  const top = snowy(new THREE.MeshStandardMaterial({ map: plaza, bumpMap: plaza.userData.bump, bumpScale: 1.2, roughness: 0.9 }), 0.8);
   const side = mat("#cfcbc2");
   g.add(mesh(new THREE.CylinderGeometry(def.radius, def.radius + 0.1, 0.34, 64), [side, top, side], { y: 0.17 }));
   const stage = radialTileTexture("#f2f1ee", { rings: 4 });
-  const stageTop = new THREE.MeshStandardMaterial({ map: stage, bumpMap: stage.userData.bump, bumpScale: 1, roughness: 0.8 });
+  const stageTop = snowy(new THREE.MeshStandardMaterial({ map: stage, bumpMap: stage.userData.bump, bumpScale: 1, roughness: 0.8 }), 0.8);
   g.add(mesh(new THREE.CylinderGeometry(def.radius * 0.58, def.radius * 0.6, 0.28, 56), [side, stageTop, side], { y: 0.48 }));
   // Glowing ring that lights up while working
   const ring = mesh(new THREE.TorusGeometry(def.radius * 0.6, 0.06, 8, 64), new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.15 }), { y: 0.63, cast: false });

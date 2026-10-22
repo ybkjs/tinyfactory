@@ -10,6 +10,10 @@ Real history from the first look, and a monitor you notice from another tab.
 - **Share poster** with a title card, the date and today's numbers; the system share sheet on phones.
 - **Keyboard shortcuts**: H home, arrows turn, + − zoom, L labels, T task list (shown in the button tooltips).
 - A source hidden as a whole (`"hide": ["cron:*"]`) isn't polled at all, so `crontab -l` no longer fills the system log every few seconds.
+- **Quick finder**: press `/` or ⌘K (or the search button) and type part of a name; Enter flies to it and opens its detail.
+- **Last 24 hours** on a line's detail: a ruler with a tick for every run (lines that run every few minutes keep just the bars).
+- **Loading screen** while the 3D view gets ready, with a message when the browser can't show WebGL.
+- **Cloud shadows** drift over the park on sunny days; yards, plazas and platforms take snow and cloud shadows like the lawn.
 
 ## 0.2.0 — 2026-10-22
 

@@ -347,6 +347,9 @@ function applyLighting(dt) {
   sky.rain += ((kind === "rain" ? 1 : 0) - sky.rain) * ease;
   sky.cloud += ((kind === "clear" ? 0 : kind === "cloudy" ? 0.6 : 1) - sky.cloud) * ease;
   weatherUniforms.snow.value = sky.snow;
+  // Cloud shadows drift over the park on sunny days (an overcast sky is one big shadow already)
+  weatherUniforms.cloudOffset.value.x += dt * 0.0028;
+  weatherUniforms.cloudOffset.value.y += dt * 0.0012;
 
   const h = Math.sin(alt);
   const day = THREE.MathUtils.smoothstep(h, -0.08, 0.22);
@@ -376,6 +379,7 @@ function applyLighting(dt) {
   scene.fog.near = rig.dist * THREE.MathUtils.lerp(0.62, 0.72, day) - sky.cloud * 5;
   scene.fog.far = rig.dist * 1.75;
   renderer.toneMappingExposure = THREE.MathUtils.lerp(1.28, 0.92, day);
+  weatherUniforms.cloudStrength.value = THREE.MathUtils.smoothstep(day, 0.4, 0.9) * (1 - sky.cloud) * (1 - sky.snow) * 0.5;
   const night = 1 - day;
   lampMaterial.emissiveIntensity = night * 3.2;
   for (const g of glows) { g.material.opacity = night * (g.isSprite ? 0.95 : 0.7); g.visible = night > 0.02; }
@@ -947,9 +951,11 @@ function updateTab() {
   iconLink.href = warn ? alertIcon : baseIcon;
 }
 
-// Keyboard: H home, arrows turn, +/- zoom, L labels, T tasks, Esc closes a detail (ui.js)
+// Keyboard: / or ⌘K find, H home, arrows turn, +/- zoom, L labels, T tasks, Esc closes a detail (ui.js)
 addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); ui.openFinder(); return; }
   if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, [contenteditable]")) return;
+  if (e.key === "/") { e.preventDefault(); ui.openFinder(); return; }
   const click = (act) => document.querySelector(`.toolbar [data-act="${act}"]`)?.click();
   const keys = { h: () => onTool("reset"), ArrowLeft: () => onTool("left"), ArrowRight: () => onTool("right"), "+": () => onTool("in"), "=": () => onTool("in"), "-": () => onTool("out"), _: () => onTool("out"), l: () => click("labels"), t: () => click("panel") };
   const fn = keys[e.key.length === 1 ? e.key.toLowerCase() : e.key];
@@ -1026,6 +1032,8 @@ function frame() {
   if (frameNo++ % 3 === 0) renderer.shadowMap.needsUpdate = true;
   if (post) composer.render(); else renderer.render(scene, camera);
   adaptQuality();
+  // The first frame is on screen: fade the loading screen out (after a couple of frames, so shaders have compiled)
+  if (frameNo === 3) { const splash = document.getElementById("splash"); if (splash) { splash.classList.add("done"); setTimeout(() => splash.remove(), 700); } }
 }
 frame();
-window.__factory = { dispatch, onTool, scene, renderer, world, rig };
+window.__factory = { dispatch, onTool, scene, renderer, world, rig, weatherUniforms };

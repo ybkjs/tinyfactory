@@ -11,6 +11,24 @@
   </script>
 </head>
 <body>
+  <div id="splash">
+    <div class="splash-box">
+      <div class="splash-icon">🏭</div>
+      <div class="splash-name">tinyfactory</div>
+      <div class="splash-bar"><i></i></div>
+      <div class="splash-text" id="splash-text"></div>
+    </div>
+  </div>
+  <script>
+    // Shown before any module loads; main.js removes it once the first frame is on screen
+    (function () {
+      var zh = (new URLSearchParams(location.search).get("lang") || navigator.language || "").toLowerCase().indexOf("zh") === 0;
+      var el = document.getElementById("splash-text");
+      el.textContent = zh ? "正在搭建你的工厂…" : "Building your factory…";
+      setTimeout(function () { if (document.getElementById("splash")) el.textContent = zh ? "加载比较慢，再等一下或刷新试试" : "Taking a while: wait a moment or reload"; }, 20000);
+      addEventListener("error", function (e) { if (document.getElementById("splash") && /WebGL|module|import/i.test(String(e.message))) el.textContent = zh ? "这台设备的浏览器打不开 3D 画面（需要 WebGL）" : "This browser can't show the 3D view (WebGL is needed)"; });
+    })();
+  </script>
   <script type="module" src="./main.js"></script>
 </body>
 </html>
