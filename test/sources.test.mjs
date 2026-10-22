@@ -1,0 +1,52 @@
+// Sources read from $HOME, so point HOME at a fixture copy before importing them
+import assert from "node:assert/strict";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { after, test } from "node:test";
+import { fileURLToPath } from "node:url";
+
+const home = mkdtempSync(`${tmpdir()}/tinyfactory-home-`);
+cpSync(fileURLToPath(new URL("./fixtures/home", import.meta.url)), home, { recursive: true });
+process.env.HOME = home;
+const claude = await import("../src/sources/claude.mjs");
+const codex = await import("../src/sources/codex.mjs");
+const openclaw = await import("../src/sources/openclaw.mjs");
+const webhook = await import("../src/sources/webhook.mjs");
+const { createCollector } = await import("../src/collect.mjs");
+after(() => rmSync(home, { recursive: true, force: true }));
+
+test("claude: busy and waiting sessions", async () => {
+  const ctx = { config: {}, memory: {} };
+  const g = await claude.collect(ctx);
+  assert.equal(g.lines[0].status, "running");
+  assert.deepEqual(g.lines[0].note, { key: "waiting", n: 1 });
+  assert.equal(g.agent.busy, 1);
+});
+
+test("openclaw: failing and paused jobs", async () => {
+  const g = await openclaw.collect({ config: {}, memory: {} });
+  assert.deepEqual(g.lines.map((l) => [l.name, l.status]), [["Morning digest", "warn"], ["Old job", "paused"]]);
+  assert.deepEqual(g.lines[0].note, { key: "failing", n: 12, reason: "auth" });
+});
+
+test("codex: automations from toml even without the app database", async () => {
+  const g = await codex.collect({ config: {}, memory: {} });
+  assert.equal(g.lines.length, 1);
+  assert.equal(g.lines[0].name, "Daily news");
+  assert.deepEqual(g.lines[0].schedule, { type: "rrule", value: "FREQ=DAILY;BYHOUR=8;BYMINUTE=0" });
+});
+
+test("webhook: reports become lines, finished runs become parcels", async () => {
+  const collector = createCollector({ sources: [webhook] });
+  webhook.record({ line: "backup", name: "Nightly backup", status: "start" });
+  let state = await collector.refresh();
+  assert.equal(state.factories[0].lines[0].status, "running");
+  assert.equal(state.events.length, 0);
+  webhook.record({ line: "backup", status: "done" });
+  state = await collector.refresh();
+  assert.equal(state.factories[0].lines[0].status, "idle");
+  assert.equal(state.factories[0].lines[0].today, 1);
+  assert.equal(state.events.length, 1);
+  assert.equal(state.events[0].agent, "custom");
+  assert.throws(() => webhook.record({ status: "done" }), /line is required/);
+});

@@ -1,0 +1,4 @@
+{ "version": 1, "jobs": [
+  { "id": "j1", "name": "Morning digest", "enabled": true, "schedule": { "kind": "cron", "expr": "0 9 * * *" }, "state": { "nextRunAtMs": 1792544400000, "lastRunAtMs": 1792458661033, "lastRunStatus": "error", "consecutiveErrors": 12, "lastErrorReason": "auth" } },
+  { "id": "j2", "name": "Old job", "enabled": false, "schedule": { "kind": "cron", "expr": "*/30 * * * *" }, "state": {} }
+] }

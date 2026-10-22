@@ -1,0 +1,10 @@
+version = 1
+id = "daily"
+kind = "cron"
+name = "Daily news"
+prompt = """
+Collect today's news.
+Send it by email.
+"""
+status = "ACTIVE"
+rrule = "FREQ=DAILY;BYHOUR=8;BYMINUTE=0"
