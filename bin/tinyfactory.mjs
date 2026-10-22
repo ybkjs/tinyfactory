@@ -46,7 +46,7 @@ setInterval(() => collector.refresh().catch(() => {}), interval * 1000);
 
 const city = resolveCity(option("city", config.city));
 const lang = option("lang", config.lang || (Intl.DateTimeFormat().resolvedOptions().locale.startsWith("zh") ? "zh" : "en"));
-const info = { title: config.title || "", demo, version, city, lang, interval };
+const info = { title: config.title || "", demo, version, city, lang, interval, platform: platform() };
 try {
   await startServer({ collector, port, host, token, info });
 } catch (error) {

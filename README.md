@@ -7,7 +7,7 @@
 一行命令，自动找出这台电脑上的 Claude Code、Codex、OpenClaw、cron、launchd、systemd 定时任务，
 每条自动化是一条产线，每次运行是一个包裹，顺着传送带送到干活的 agent 面前。
 
-[English](README.en.md) · 中文
+**[在线演示](https://ybkjs.github.io/tinyfactory/)**（手机也能看） · [English](README.en.md) · 中文
 
 ![tinyfactory](docs/demo.gif)
 

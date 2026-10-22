@@ -48,7 +48,10 @@ const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 /* ---------- First load: what's on this machine decides the layout ---------- */
 
+// The online demo has no server: static.js plays the demo factory inside the page
+const local = window.TINYFACTORY_STATIC ? await import("./static.js") : null;
 async function fetchState() {
+  if (local) return local.fetchState();
   const res = await fetch(api("/api/state"), { cache: "no-store" });
   if (!res.ok) throw new Error(`state ${res.status}`);
   return res.json();
@@ -59,24 +62,55 @@ const DEMO = Boolean(state.demo);
 const layout = computeLayout(state);
 const structure = signature(state);
 
-const camera = new THREE.PerspectiveCamera(24, innerWidth / innerHeight, 1, 400);
-// Frame the whole park, leaving room for the panel on the left
+const camera = new THREE.PerspectiveCamera(24, innerWidth / innerHeight, 1, 600);
+// Same rule as the phone layout in style.css: narrow windows and any portrait screen (tablets too)
+const narrow = () => matchMedia("(max-width: 760px), (max-aspect-ratio: 4/5)").matches;
+// On a portrait screen the camera turns 90°, so the wide park (factories → hub → agents) runs top to bottom
+const portrait = () => innerWidth / innerHeight < 0.8;
+function aim(cam, { target, az, polar, dist }) {
+  cam.position.set(target.x + Math.sin(az) * Math.sin(polar) * dist, target.y + Math.cos(polar) * dist, target.z + Math.cos(az) * Math.sin(polar) * dist);
+  cam.lookAt(target);
+  cam.updateMatrixWorld();
+}
+// The part of the screen the park should fill, clear of the cards around the edges
+function safeArea() {
+  // Mid-size windows start with the task list folded away (ui.js), so the park gets the full width
+  return narrow() ? { l: 14, r: innerWidth - 14, t: 150, b: innerHeight - 78 } : { l: innerWidth <= 1100 ? 28 : 348, r: innerWidth - 28, t: 108, b: innerHeight - 104 };
+}
+// Frame the whole park inside the safe area: find the closest distance that fits, then slide the target to centre it
 function homeView() {
   const b = layout.bounds;
-  const spanX = b.maxX - b.minX + 6, spanZ = b.maxZ - b.minZ + 6;
-  const aspect = innerWidth / innerHeight, k = 2 * Math.tan(THREE.MathUtils.degToRad(12));
-  const panel = innerWidth > 760 ? 0.13 : 0;
-  const dist = THREE.MathUtils.clamp(Math.max((spanX * 1.18) / (k * aspect * (1 - panel * 2)), (spanZ * 0.95) / k), 45, 150);
-  const visibleWidth = k * dist * aspect;
-  return { target: new THREE.Vector3((b.minX + b.maxX) / 2 - visibleWidth * panel * 0.5, 0, (b.minZ + b.maxZ) / 2 + 1), az: -0.06, polar: 0.84, dist };
+  const view = { target: new THREE.Vector3((b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2), az: portrait() ? Math.PI / 2 - 0.08 : -0.06, polar: portrait() ? 0.6 : 0.84, dist: 80 };
+  const corners = [];
+  for (const x of [b.minX - 1, b.maxX + 1]) for (const z of [b.minZ - 1, b.maxZ + 1]) for (const y of [0, 3]) corners.push(new THREE.Vector3(x, y, z));
+  const cam = new THREE.PerspectiveCamera(camera.fov, innerWidth / innerHeight, 1, 1000);
+  const toScreen = (p) => { const q = p.clone().project(cam); return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight]; };
+  const box = () => {
+    aim(cam, view);
+    const pts = corners.map(toScreen);
+    return { x0: Math.min(...pts.map((p) => p[0])), x1: Math.max(...pts.map((p) => p[0])), y0: Math.min(...pts.map((p) => p[1])), y1: Math.max(...pts.map((p) => p[1])) };
+  };
+  const ray = new THREE.Raycaster(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const groundAt = (x, y) => { ray.setFromCamera(new THREE.Vector2((x / innerWidth) * 2 - 1, 1 - (y / innerHeight) * 2), cam); return ray.ray.intersectPlane(ground, new THREE.Vector3()); };
+  const s = safeArea();
+  for (let pass = 0; pass < 3; pass++) {
+    let lo = 20, hi = 420;
+    for (let i = 0; i < 24; i++) {
+      view.dist = (lo + hi) / 2;
+      const r = box();
+      if (r.x1 - r.x0 <= s.r - s.l && r.y1 - r.y0 <= s.b - s.t) hi = view.dist; else lo = view.dist;
+    }
+    view.dist = hi;
+    const r = box();
+    const from = groundAt((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), to = groundAt((s.l + s.r) / 2, (s.t + s.b) / 2);
+    if (from && to) view.target.add(from.sub(to));
+  }
+  return view;
 }
-const HOME = homeView();
+let HOME = homeView();
+const maxDist = () => Math.max(150, HOME.dist * 1.4);
 const rig = { target: HOME.target.clone(), az: HOME.az, polar: HOME.polar, dist: HOME.dist, goal: { ...HOME, target: HOME.target.clone() } };
-function placeCamera() {
-  const { target, az, polar, dist } = rig;
-  camera.position.set(target.x + Math.sin(az) * Math.sin(polar) * dist, target.y + Math.cos(polar) * dist, target.z + Math.cos(az) * Math.sin(polar) * dist);
-  camera.lookAt(target);
-}
+const placeCamera = () => aim(camera, rig);
 
 /* ---------- Lights ---------- */
 
@@ -207,10 +241,14 @@ if (POST) {
   // Tilt-shift is off by default (sharpness first); ?tilt=1 blurs the top and bottom edges with CSS
   document.body.insertAdjacentHTML("beforeend", '<div class="tilt top"></div><div class="tilt bottom"></div>');
 }
+let wasPortrait = portrait();
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  // "Home" follows the window; turning a phone sideways also moves the camera there
+  HOME = homeView();
+  if (portrait() !== wasPortrait) { wasPortrait = portrait(); Object.assign(rig.goal, { ...HOME, target: HOME.target.clone() }); }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
   if (!POST) return;
   composer.setSize(innerWidth, innerHeight);
@@ -300,25 +338,30 @@ function applyLighting(dt) {
   sun.position.copy(rig.target).addScaledVector(dir, 90);
   sun.target.position.copy(rig.target);
   const cloudDim = 1 - sky.cloud * 0.5;
-  sun.intensity = THREE.MathUtils.lerp(0.42, 3.1 * cloudDim, day);
-  sun.color.copy(tmpColor.set("#a9bbff")).lerp(new THREE.Color("#fff1dc").lerp(new THREE.Color("#ffb070"), golden * day), day);
-  hemi.intensity = THREE.MathUtils.lerp(0.32, 1.15 + sky.cloud * 0.25, day);
-  hemi.color.set("#2c3c6a").lerp(new THREE.Color(sky.cloud > 0.5 ? "#e4e9ef" : "#d6e9ff"), day);
-  hemi.groundColor.set("#141a22").lerp(new THREE.Color(sky.snow > 0.5 ? "#c9d2dc" : "#5d7a3a"), day);
+  // Nights stay readable: a bright moon and a blue-grey sky light keep the buildings' own colours
+  sun.intensity = THREE.MathUtils.lerp(0.95, 3.1 * cloudDim, day);
+  sun.color.copy(tmpColor.set("#bccaff")).lerp(new THREE.Color("#fff1dc").lerp(new THREE.Color("#ffb070"), golden * day), day);
+  hemi.intensity = THREE.MathUtils.lerp(0.8, 1.15 + sky.cloud * 0.25, day);
+  hemi.color.set("#5f72a6").lerp(new THREE.Color(sky.cloud > 0.5 ? "#e4e9ef" : "#d6e9ff"), day);
+  hemi.groundColor.set("#2c3628").lerp(new THREE.Color(sky.snow > 0.5 ? "#c9d2dc" : "#5d7a3a"), day);
   if (scene.environment) scene.environmentIntensity = THREE.MathUtils.lerp(0.08, 0.35, day);
-  const fog = tmpColor.set("#18202e").lerp(new THREE.Color(sky.snow > 0.5 ? "#c8d0d8" : sky.cloud > 0.5 ? "#b4bdb0" : "#a9bf8e"), day);
+  const fog = tmpColor.set("#223049").lerp(new THREE.Color(sky.snow > 0.5 ? "#c8d0d8" : sky.cloud > 0.5 ? "#b4bdb0" : "#a9bf8e"), day);
+  // Golden hour on a clear day: the haze and sky light warm up as the sun gets low
+  const warm = golden * day * (1 - sky.cloud);
+  fog.lerp(new THREE.Color("#e2b48c"), warm * 0.5);
+  hemi.color.lerp(new THREE.Color("#ffd2a6"), warm * 0.45);
   scene.fog.color.copy(fog);
   scene.background.copy(fog);
   // Fog scales with the camera distance, so a big park zoomed out isn't drowned in haze
   scene.fog.near = rig.dist * THREE.MathUtils.lerp(0.62, 0.72, day) - sky.cloud * 5;
   scene.fog.far = rig.dist * 1.75;
-  renderer.toneMappingExposure = THREE.MathUtils.lerp(1.2, 0.92, day);
+  renderer.toneMappingExposure = THREE.MathUtils.lerp(1.28, 0.92, day);
   const night = 1 - day;
   lampMaterial.emissiveIntensity = night * 3.2;
-  for (const g of glows) { g.material.opacity = night * (g.isSprite ? 0.9 : 0.55); g.visible = night > 0.02; }
+  for (const g of glows) { g.material.opacity = night * (g.isSprite ? 0.95 : 0.7); g.visible = night > 0.02; }
   for (const o of transparentMeshes) if (o.material.isMeshPhysicalMaterial) o.material.envMapIntensity = THREE.MathUtils.lerp(0.06, o.material.userData.env ?? (o.material.userData.env = o.material.envMapIntensity), day);
   windowMaterial.emissive.set("#ffc979");
-  windowMaterial.emissiveIntensity = night * 0.9;
+  windowMaterial.emissiveIntensity = night * 1.7;
   rain.material.opacity = sky.rain * 0.55;
   snow.material.opacity = sky.snow * 0.95;
   return { now, day };
@@ -353,8 +396,10 @@ async function fetchWeather(force = false) {
   if (cached && !force && Date.now() - cached.at < 15 * 60 * 1000) { liveWeather = cached.weather; return; }
   let weather = null;
   try {
-    const res = await fetch(api(`/api/weather?lat=${target.lat}&lon=${target.lon}`), { signal: AbortSignal.timeout(9000) });
-    if (res.ok) { const w = await res.json(); if (w.code !== undefined) weather = describeWeather(w.code, w.temp); }
+    const w = local
+      ? await local.fetchWeather(target.lat, target.lon)
+      : await fetch(api(`/api/weather?lat=${target.lat}&lon=${target.lon}`), { signal: AbortSignal.timeout(9000) }).then((res) => (res.ok ? res.json() : {}));
+    if (w.code !== undefined) weather = describeWeather(w.code, w.temp);
   } catch { /* keep the last known weather */ }
   if (!weather) return;
   weatherCache.set(target.id, { weather, at: Date.now() });
@@ -476,9 +521,16 @@ function screenOf(p) {
 let bigBoxes = [];
 function placeAt(el, x, bottom) {
   el.style.display = "";
+  const w = el._w || 120, h = el._h || 34, anchor = bottom;
+  // Big labels never cover each other: slide up past the one in the way, and stretch the stem down to the building
+  for (let tries = 0; tries < 6; tries++) {
+    const hit = bigBoxes.find(([x0, y0, x1, y1]) => x - w / 2 < x1 && x + w / 2 > x0 && bottom - h < y1 && bottom > y0);
+    if (!hit) break;
+    bottom = hit[1] - 4;
+  }
   el.style.transform = `translate(${x}px, ${bottom}px) translate(-50%, -100%)`;
-  const w = el._w || 120, h = el._h || 34;
-  bigBoxes.push([x - w / 2 - 4, bottom - h - 4, x + w / 2 + 4, bottom + 18]);
+  el.style.setProperty("--stem", `${16 + anchor - bottom}px`);
+  bigBoxes.push([x - w / 2 - 4, bottom - h - 4, x + w / 2 + 4, anchor + 18]);
 }
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const agentStatus = (a) => (a?.status === "running" ? (a.busy ? `${t("processing")} ${a.busy}` : t("processing")) : a?.status === "warn" ? t("warn") : t("standby"));
@@ -549,7 +601,7 @@ function onTool(act, arg) {
   if (act === "left") g.az -= Math.PI / 4;
   if (act === "right") g.az += Math.PI / 4;
   if (act === "in") g.dist = Math.max(28, g.dist * 0.78);
-  if (act === "out") g.dist = Math.min(150, g.dist / 0.78);
+  if (act === "out") g.dist = Math.min(maxDist(), g.dist / 0.78);
   if (act === "weather") preview = arg;
   if (act === "city") setCity(arg);
   if (act === "share") shareImage();
@@ -560,9 +612,21 @@ function onTool(act, arg) {
 }
 function dispatchPreview(id) { if (DEMO) dispatch(id); }
 
-let drag = null;
-canvas.addEventListener("pointerdown", (e) => { document.getElementById("weather-menu").classList.remove("open"); drag = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey }; canvas.setPointerCapture(e.pointerId); });
+// One finger / mouse drag turns the view, right button or shift pans, two fingers pinch to zoom
+let drag = null, pinch = null;
+const pointers = new Map();
+const spread = () => { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+canvas.addEventListener("pointerdown", (e) => {
+  document.getElementById("weather-menu").classList.remove("open");
+  document.body.classList.remove("sheet");
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  canvas.setPointerCapture(e.pointerId);
+  if (pointers.size === 2) { drag = null; pinch = { from: spread(), dist: rig.goal.dist }; }
+  else drag = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey };
+});
 canvas.addEventListener("pointermove", (e) => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && pointers.size === 2) { rig.goal.dist = THREE.MathUtils.clamp(pinch.dist * (pinch.from / Math.max(spread(), 1)), 28, maxDist()); return; }
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   drag.x = e.clientX; drag.y = e.clientY;
@@ -576,9 +640,17 @@ canvas.addEventListener("pointermove", (e) => {
     g.polar = THREE.MathUtils.clamp(g.polar + dy * 0.003, 0.35, 1.15);
   }
 });
-canvas.addEventListener("pointerup", () => { drag = null; });
+function release(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinch = null;
+  // Lifting one finger of a pinch carries on as a drag from the other one, without a jump
+  const rest = [...pointers.values()][0];
+  drag = rest ? { x: rest.x, y: rest.y, pan: false } : null;
+}
+canvas.addEventListener("pointerup", release);
+canvas.addEventListener("pointercancel", release);
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-canvas.addEventListener("wheel", (e) => { e.preventDefault(); rig.goal.dist = THREE.MathUtils.clamp(rig.goal.dist * Math.exp(e.deltaY * 0.0012), 28, 150); }, { passive: false });
+canvas.addEventListener("wheel", (e) => { e.preventDefault(); rig.goal.dist = THREE.MathUtils.clamp(rig.goal.dist * Math.exp(e.deltaY * 0.0012), 28, maxDist()); }, { passive: false });
 
 /* ---------- Data: poll /api/state; new runs become parcels ---------- */
 
@@ -685,11 +757,16 @@ function frame() {
   rig.polar += (rig.goal.polar - rig.polar) * k;
   rig.dist += (rig.goal.dist - rig.dist) * k;
   placeCamera();
-  const { now } = applyLighting(dt);
+  const { now, day } = applyLighting(dt);
   updateParticles(dt, t);
   animate(dt, t);
   updateLabels();
-  if (t - lastClock > 1) { lastClock = t; ui.renderClock(now, cityName(city), preview === "live" ? liveWeather : { ...describeWeather({ clear: 0, rain: 61, snow: 73 }[PREVIEW[preview]?.kind] ?? 0), temp: liveWeather.temp }); }
+  if (t - lastClock > 1) {
+    lastClock = t;
+    const w = preview === "live" ? liveWeather : { ...describeWeather({ clear: 0, rain: 61, snow: 73 }[PREVIEW[preview]?.kind] ?? 0), temp: liveWeather.temp };
+    // A clear night shows the moon, not the sun
+    ui.renderClock(now, cityName(city), day < 0.15 && w.emoji === "☀️" ? { ...w, emoji: "🌙" } : day < 0.15 && w.emoji === "⛅" ? { ...w, emoji: "☁️" } : w);
+  }
   if (frameNo++ % 3 === 0) renderer.shadowMap.needsUpdate = true;
   if (POST) composer.render(); else renderer.render(scene, camera);
   adaptQuality();

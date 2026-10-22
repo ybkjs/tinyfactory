@@ -63,11 +63,7 @@ export function parseFlatToml(text) {
 
 export const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
-// "codex:*" style globs used by config (hide / factories.match)
-export function globMatch(pattern, value) {
-  const re = new RegExp(`^${pattern.split("*").map((s) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
-  return re.test(value);
-}
+export { globMatch } from "./assemble.mjs";
 
 // Normalise timestamps that may be seconds or milliseconds
 export const ms = (t) => (!t ? 0 : t < 1e12 ? t * 1000 : t);

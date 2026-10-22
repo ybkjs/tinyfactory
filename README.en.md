@@ -7,7 +7,7 @@
 One command finds the Claude Code, Codex, OpenClaw, cron, launchd and systemd jobs on your machine.
 Every automation becomes a production line; every run becomes a parcel riding the belt to the agent doing the work.
 
-English · [中文](README.md)
+**[Live demo](https://ybkjs.github.io/tinyfactory/)** (works on phones) · English · [中文](README.md)
 
 ![tinyfactory](docs/demo.gif)
 
