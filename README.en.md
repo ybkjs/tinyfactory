@@ -25,11 +25,11 @@ Inspired by [@Khazix0918's automation pipeline visualization](https://x.com/Khaz
 ## Quick start
 
 ```bash
-npx tinyfactory            # scan this machine and open your factory
-npx tinyfactory --demo     # look at a sample factory first
+npx github:ybkjs/tinyfactory            # scan this machine and open your factory
+npx github:ybkjs/tinyfactory --demo     # look at a sample factory first
 ```
 
-Requires Node.js 18+. Your browser opens `http://127.0.0.1:4520/`.
+Requires Node.js 18+ and git. Your browser opens `http://127.0.0.1:4520/`.
 
 ## What it discovers
 
@@ -64,7 +64,7 @@ Your laptop can't see your server's cron jobs. Run tinyfactory on the server too
 
 ```bash
 # on the server
-npx tinyfactory --host 127.0.0.1 --port 4520 --token some-random-string --no-open
+npx github:ybkjs/tinyfactory --host 127.0.0.1 --port 4520 --token some-random-string --no-open
 # on the laptop: forward the server's 4520 to local 4525
 ssh -N -L 4525:127.0.0.1:4520 you@your-server
 ```

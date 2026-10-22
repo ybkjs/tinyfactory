@@ -25,11 +25,11 @@
 ## 快速开始
 
 ```bash
-npx tinyfactory            # 扫描这台电脑，打开你的工厂
-npx tinyfactory --demo     # 先看看演示工厂
+npx github:ybkjs/tinyfactory            # 扫描这台电脑，打开你的工厂
+npx github:ybkjs/tinyfactory --demo     # 先看看演示工厂
 ```
 
-需要 Node.js 18+。浏览器会自动打开 `http://127.0.0.1:4520/`。
+需要 Node.js 18+ 和 git。浏览器会自动打开 `http://127.0.0.1:4520/`。
 
 ## 它会自动发现什么
 
@@ -68,7 +68,7 @@ n8n、GitHub Actions、Python 脚本、飞书机器人……能发 HTTP 请求�
 
 ```bash
 # 服务器上
-npx tinyfactory --host 127.0.0.1 --port 4520 --token 一串随机字符 --no-open
+npx github:ybkjs/tinyfactory --host 127.0.0.1 --port 4520 --token 一串随机字符 --no-open
 # 笔记本上：开一条隧道，把服务器的 4520 映射到本机 4525
 ssh -N -L 4525:127.0.0.1:4520 you@your-server
 ```
@@ -127,7 +127,7 @@ ssh -N -L 4525:127.0.0.1:4520 you@your-server
 - 只监听 `127.0.0.1`，不上传任何数据，没有统计。
 - 只读：不会修改你的任何任务。
 - 唯一的外部请求是天气：把你选的城市坐标发给 Open-Meteo。
-- 想在局域网或服务器上开放，必须加 `--token`：`npx tinyfactory --host 0.0.0.0 --token 你的密码`。
+- 想在局域网或服务器上开放，必须加 `--token`：`npx github:ybkjs/tinyfactory --host 0.0.0.0 --token 你的密码`。
 
 ## 命令行参数
 
