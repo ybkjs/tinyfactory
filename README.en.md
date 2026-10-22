@@ -103,8 +103,10 @@ Line ids look like `source:name` (e.g. `codex:daily-news`, `systemd:backup`).
 
 - **Real time and weather** for your city: the sun moves, lamps and windows light up at night, rain and snow follow the real sky ([Open-Meteo](https://open-meteo.com/)). Switch cities or preview dusk / night / snowy night from the top-right card.
 - **Readable status**: green = running, red = needs attention (failing, stalled, unread results), hollow = waiting for its next run.
+- **People at work**: each factory yard has workers in hard hats; when a line runs, one walks over and works the machine, and a line that runs continuously keeps someone beside it. The agents blink and come alive while they work.
+- **Labels in three steps**: by default only lines that are running, online or need attention carry a label; the Labels button switches to all, then off.
 - **Share** saves the current view as a PNG.
-- Drag to rotate, right-drag to pan, scroll to zoom; click a line in the list to fly to it.
+- Drag to rotate, right-drag to pan, scroll or pinch to zoom; click a line in the list to fly to it.
 
 | Dusk | Snowy night |
 |---|---|
