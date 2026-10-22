@@ -21,7 +21,7 @@
     "record": "node scripts/record.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "keywords": [
     "ai",

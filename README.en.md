@@ -29,7 +29,7 @@ npx github:ybkjs/tinyfactory            # scan this machine and open your factor
 npx github:ybkjs/tinyfactory --demo     # look at a sample factory first
 ```
 
-Requires Node.js 18+ and git. Your browser opens `http://127.0.0.1:4520/`.
+Requires Node.js 20+ and git. Your browser opens `http://127.0.0.1:4520/`.
 
 ## What it discovers
 

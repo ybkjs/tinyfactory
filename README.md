@@ -29,7 +29,7 @@ npx github:ybkjs/tinyfactory            # 扫描这台电脑，打开你的工�
 npx github:ybkjs/tinyfactory --demo     # 先看看演示工厂
 ```
 
-需要 Node.js 18+ 和 git。浏览器会自动打开 `http://127.0.0.1:4520/`。
+需要 Node.js 20+ 和 git。浏览器会自动打开 `http://127.0.0.1:4520/`。
 
 ## 它会自动发现什么
 
