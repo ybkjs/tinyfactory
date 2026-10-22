@@ -42,6 +42,7 @@ Requires Node.js 18+. Your browser opens `http://127.0.0.1:4520/`.
 | macOS launchd | `~/Library/LaunchAgents/*.plist` (scheduled ones) | schedule, last exit code |
 | Linux systemd | `systemctl` timers | schedule, next run, runs today, failures |
 | Anything else | `POST /api/event` | whatever you report |
+| tinyfactory on another machine | its `/api/state` | jobs on a server or NAS on the same map (see below) |
 
 Everything is **read-only**. Sources that aren't there are skipped silently.
 
@@ -56,6 +57,23 @@ curl -X POST localhost:4520/api/event -d '{"line":"backup","status":"fail","msg"
 
 Fields: `line` (required id), `name`, `factory`, `agent` (`claude` / `codex` / `deepseek` / `openclaw` / `system` / `custom`), `status` (`start` / `done` / `fail`), `msg`.
 Every `done` or `fail` sends a parcel to that agent. n8n, GitHub Actions, Python, chat bots — anything that can send an HTTP request.
+
+## Several machines, one map
+
+Your laptop can't see your server's cron jobs. Run tinyfactory on the server too (listening on localhost only) and bring it over an SSH tunnel:
+
+```bash
+# on the server
+npx tinyfactory --host 127.0.0.1 --port 4520 --token some-random-string --no-open
+# on the laptop: forward the server's 4520 to local 4525
+ssh -N -L 4525:127.0.0.1:4520 you@your-server
+```
+
+```json
+{ "remote": [{ "name": "server", "url": "http://127.0.0.1:4525", "token": "some-random-string" }] }
+```
+
+Remote line ids become `remote:server:<id>`, so `rename` / `assign` / `factories` work on them. If a remote is unreachable for over a minute its lines are flagged.
 
 ## Config (optional)
 

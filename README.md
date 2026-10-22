@@ -42,6 +42,7 @@ npx tinyfactory --demo     # 先看看演示工厂
 | macOS launchd | `~/Library/LaunchAgents/*.plist`（带定时的） | 计划、上次退出码 |
 | Linux systemd | `systemctl` 定时器 | 计划、下次运行、今日次数、失败 |
 | 任何别的东西 | `POST /api/event` | 你上报什么就显示什么 |
+| 另一台机器上的 tinyfactory | 它的 `/api/state` | 服务器、NAS 上的任务汇总到同一张图（见下文） |
 
 全部**只读**。找不到的来源会安静地跳过。
 
@@ -60,6 +61,26 @@ curl -X POST localhost:4520/api/event -d '{"line":"backup","status":"fail","msg"
 每次 `done` 或 `fail` 都会变成一个包裹送到对应的 agent。
 
 n8n、GitHub Actions、Python 脚本、飞书机器人……能发 HTTP 请求的都能接。
+
+## 多台机器汇总到一张图
+
+云服务器上的定时任务，笔记本是看不到的。办法是在服务器上也跑一份（只听本机），再用 SSH 隧道把它接过来：
+
+```bash
+# 服务器上
+npx tinyfactory --host 127.0.0.1 --port 4520 --token 一串随机字符 --no-open
+# 笔记本上：开一条隧道，把服务器的 4520 映射到本机 4525
+ssh -N -L 4525:127.0.0.1:4520 you@your-server
+```
+
+然后在笔记本的配置里加上：
+
+```json
+{ "remote": [{ "name": "server", "url": "http://127.0.0.1:4525", "token": "一串随机字符" }] }
+```
+
+服务器的产线 id 会变成 `remote:server:原来的id`，`rename` / `assign` / `factories` 都能按这个规则重新命名、分组。服务器连不上超过一分钟，它的产线会标成「连不上」。
+在服务器上跑的脚本也可以直接往服务器那份 tinyfactory 发 webhook，笔记本这边同样能看到包裹。
 
 ## 配置（可选）
 
