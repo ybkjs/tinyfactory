@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { SimplexNoise } from "three/addons/math/SimplexNoise.js";
 import { belt, corridor } from "./flow.js";
 import { agentPlatform, bench, factory, hub, lampPost } from "./structures.js";
-import { grassTexture, gravelTexture, mat, mesh, pick, rand, range, snowy } from "./util.js";
+import { grassTexture, gravelTexture, mat, mesh, pick, rand, range, rippleNormals, snowy } from "./util.js";
 
 const PORT_R = 3.9;
 
@@ -81,8 +81,10 @@ export function buildWorld(scene, layout) {
     [[1.2, -7.2], [3, -13], [0, -24], [-6, -36], [-9, -60]]
   ];
   const gravel = gravelTexture();
+  const pathCurves = [];
   for (const pts of paths) {
     const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0.03, z)));
+    pathCurves.push(curve);
     const geometry = flatRibbon(curve, 2.3, 120);
     const material = snowy(new THREE.MeshStandardMaterial({ map: gravel, roughness: 1 }));
     scene.add(mesh(geometry, material, { cast: false }));
@@ -93,7 +95,9 @@ export function buildWorld(scene, layout) {
   let water = null;
   if (layout.pond) {
     const { x: px, z: pz, r: pr } = layout.pond;
-    water = mesh(new THREE.CircleGeometry(pr, 64), new THREE.MeshPhysicalMaterial({ color: "#3d8c8f", roughness: 0.06, metalness: 0.05, clearcoat: 1, transparent: true, opacity: 0.92, envMapIntensity: 1.2 }), { x: px, y: 0.06, z: pz, cast: false });
+    // Gentle ripples: a tiling normal map that main.js scrolls
+    const ripples = rippleNormals(new SimplexNoise({ random: rand }));
+    water = mesh(new THREE.CircleGeometry(pr, 64), new THREE.MeshPhysicalMaterial({ color: "#3d8c8f", roughness: 0.08, metalness: 0.05, clearcoat: 1, transparent: true, opacity: 0.92, envMapIntensity: 1.2, normalMap: ripples, normalScale: new THREE.Vector2(0.35, 0.35) }), { x: px, y: 0.06, z: pz, cast: false });
     water.rotation.x = -Math.PI / 2;
     scene.add(water);
     const bed = mesh(new THREE.CircleGeometry(pr + 0.25, 64), mat("#5d6b55"), { x: px, y: 0.035, z: pz, cast: false });
@@ -127,6 +131,7 @@ export function buildWorld(scene, layout) {
   // Woods, bushes, grass, flowers
   const blocked = makeBlocked(zones);
   plantTrees(scene, blocked);
+  plantBorders(scene, pathCurves, blocked, layout);
   scatterGrass(scene, blocked);
 
   return { ground, water, hub: hubGroup, factories, agents, lines, outBelts };
@@ -185,11 +190,18 @@ function blobGeometry(seedOffset) {
   }
   // Normals from the original sphere: a lumpy outline but soft, cotton-ball shading
   const normal = geometry.attributes.normal;
+  // Vertex colours: darker underneath and in the dips, sunlit on top, so every crown reads as a soft volume
+  const colors = new Float32Array(p.count * 3);
   for (let i = 0; i < normal.count; i++) {
-    v.fromBufferAttribute(p, i).normalize();
+    v.fromBufferAttribute(p, i);
+    const dip = v.length() - 1;
+    v.normalize();
     normal.setXYZ(i, v.x, v.y * 0.9 + 0.1, v.z);
+    const shade = THREE.MathUtils.clamp(0.58 + 0.52 * THREE.MathUtils.smoothstep(v.y, -0.85, 0.95) + dip * 0.9 + (noise.noise3d(v.x * 9, v.y * 9, v.z * 9 + seedOffset) * 0.05), 0.45, 1.15);
+    colors.set([shade, shade, shade * 0.97], i * 3);
   }
   normal.needsUpdate = true;
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   return geometry;
 }
 
@@ -217,7 +229,7 @@ function plantTrees(scene, blocked) {
   const blobs = [blobGeometry(0), blobGeometry(7.3), blobGeometry(13.1)];
   const greens = ["#4f8a2e", "#5c9a35", "#3f7a28", "#6aa83c", "#4a8530", "#76b043"];
   const autumn = ["#e0a23a", "#d9822b", "#e8b84a", "#c9682a"];
-  const leafMat = mat("#ffffff", { rough: 0.85 }), barkMat = mat("#6b4a33");
+  const leafMat = mat("#ffffff", { rough: 0.85, vertexColors: true }), barkMat = mat("#6b4a33");
   const trunkGeo = new THREE.CylinderGeometry(0.11, 0.17, 1, 6);
   // 24 m chunks: chunks outside the camera or shadow frustum are skipped whole
   const CHUNK = 24, chunks = new Map();
@@ -229,7 +241,7 @@ function plantTrees(scene, blocked) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s3 = new THREE.Vector3(), v3 = new THREE.Vector3(), color = new THREE.Color();
   for (const list of chunks.values()) {
     const foliage = blobs.map((g) => {
-      const im = new THREE.InstancedMesh(g, leafMat, list.length * 2);
+      const im = new THREE.InstancedMesh(g, leafMat, list.length * 3);
       im.castShadow = im.receiveShadow = true;
       im.count = 0;
       return im;
@@ -241,11 +253,12 @@ function plantTrees(scene, blocked) {
       m4.compose(v3.set(x, h / 2, z), q.identity(), s3.set(size, h, size));
       trunks.setMatrixAt(i, m4);
       const base = rand() < 0.16 ? pick(autumn) : pick(greens);
-      const clumps = 3 + Math.floor(rand() * 3);
+      // More, smaller clumps: fluffier crowns
+      const clumps = 4 + Math.floor(rand() * 3);
       for (let c = 0; c < clumps; c++) {
         const im = pick(foliage);
-        if (im.count >= list.length * 2) continue;
-        const r = size * range(0.55, 0.9);
+        if (im.count >= list.length * 3) continue;
+        const r = size * range(0.5, 0.8);
         const a = rand() * Math.PI * 2, off = c === 0 ? 0 : size * range(0.35, 0.6);
         q.setFromEuler(new THREE.Euler(0, rand() * 6, 0));
         m4.compose(v3.set(x + Math.cos(a) * off, h + size * 0.55 + (c === 0 ? size * 0.35 : range(-0.1, 0.3) * size), z + Math.sin(a) * off), q, s3.set(r, r, r));
@@ -264,7 +277,7 @@ function plantTrees(scene, blocked) {
   }
 
   // Bushes hug the yards and platforms
-  const bushes = new THREE.InstancedMesh(blobs[1], mat("#ffffff"), 260);
+  const bushes = new THREE.InstancedMesh(blobs[1], mat("#ffffff", { vertexColors: true }), 260);
   let n = 0;
   for (let k = 0; k < 4000 && n < 260; k++) {
     const x = range(-40, 40), z = range(-30, 30);
@@ -278,6 +291,67 @@ function plantTrees(scene, blocked) {
   bushes.count = n;
   bushes.castShadow = bushes.receiveShadow = true;
   scene.add(bushes);
+}
+
+// Bushes and lavender along both sides of the paths and around the hub, the platforms and the pond
+function plantBorders(scene, curves, blocked, layout) {
+  const spots = [];
+  for (const curve of curves) {
+    const len = curve.getLength();
+    for (let d = 0.6; d < len; d += 1.15) {
+      const p = curve.getPointAt(d / len), t = curve.getTangentAt(d / len);
+      for (const side of [-1, 1]) {
+        const off = side * (1.95 + rand() * 0.35);
+        spots.push([p.x - t.z * off, p.z + t.x * off]);
+      }
+    }
+  }
+  const ring = (x, z, r) => { const n = Math.round((Math.PI * 2 * r) / 1.25); for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + rand() * 0.2; spots.push([x + Math.cos(a) * r, z + Math.sin(a) * r]); } };
+  ring(layout.hub.x, layout.hub.z, layout.hub.radius + 0.8);
+  for (const a of layout.agents) ring(a.x, a.z, a.radius + 0.75);
+  if (layout.pond) ring(layout.pond.x, layout.pond.z, layout.pond.r + 1.1);
+
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s3 = new THREE.Vector3(), v3 = new THREE.Vector3(), color = new THREE.Color();
+  const bushes = new THREE.InstancedMesh(blobGeometry(21.7), mat("#ffffff", { rough: 0.85, vertexColors: true }), spots.length);
+  const spike = new THREE.ConeGeometry(0.06, 0.42, 5);
+  spike.translate(0, 0.21, 0);
+  const lavender = new THREE.InstancedMesh(spike, mat("#ffffff", { rough: 0.8, snow: 0.5 }), spots.length * 10);
+  const blossom = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 5), mat("#ffffff", { snow: 0.5 }), spots.length * 4);
+  let nb = 0, nl = 0, nf = 0;
+  for (const [x, z] of spots) {
+    if (blocked(x, z, 0.25)) continue;
+    if (rand() < 0.6) {
+      const r = range(0.32, 0.52);
+      q.setFromEuler(new THREE.Euler(0, rand() * 6, 0));
+      m4.compose(v3.set(x, r * 0.62, z), q, s3.set(r * 1.25, r, r * 1.25));
+      bushes.setMatrixAt(nb, m4);
+      bushes.setColorAt(nb++, color.set(pick(["#4f8a2e", "#5c9a35", "#467f2a", "#64a33b"])));
+      // Some bushes are in bloom
+      if (rand() < 0.35) {
+        const tone = pick(["#fff4f7", "#ffc2d6", "#ffe08a"]);
+        for (let i = 0; i < 4; i++) {
+          const a = rand() * Math.PI * 2, d = r * range(0.5, 0.95);
+          m4.compose(v3.set(x + Math.cos(a) * d, r * range(0.75, 1.15), z + Math.sin(a) * d), q.identity(), s3.set(1, 1, 1));
+          blossom.setMatrixAt(nf, m4);
+          blossom.setColorAt(nf++, color.set(tone));
+        }
+      }
+    } else {
+      for (let i = 0; i < 9; i++) {
+        const a = rand() * Math.PI * 2, d = rand() * 0.32;
+        q.setFromEuler(new THREE.Euler(range(-0.18, 0.18), 0, range(-0.18, 0.18)));
+        m4.compose(v3.set(x + Math.cos(a) * d, 0, z + Math.sin(a) * d), q, s3.set(1, range(0.8, 1.35), 1));
+        lavender.setMatrixAt(nl, m4);
+        lavender.setColorAt(nl++, color.set(pick(["#8f78cf", "#a48ad8", "#7d68bf", "#9a84d6"])));
+      }
+    }
+  }
+  for (const [im, n] of [[bushes, nb], [lavender, nl], [blossom, nf]]) {
+    im.count = n;
+    im.castShadow = im === bushes;
+    im.receiveShadow = true;
+    if (n) scene.add(im);
+  }
 }
 
 function scatterGrass(scene, blocked) {

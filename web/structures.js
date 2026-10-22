@@ -1,7 +1,7 @@
 // Buildings and characters: factories (a building plus one machine per line), the hub, agent platforms and characters
 import * as THREE from "three";
 import { nameOf } from "./i18n.js";
-import { boxTexture, canvasTexture, gableGeometry, labelTexture, mat, mesh, radialTileTexture, range, rbox, tileTexture } from "./util.js";
+import { boxTexture, brickTexture, canvasTexture, gableGeometry, labelTexture, mat, mesh, radialTileTexture, range, rbox, shingleTexture, tileTexture } from "./util.js";
 
 const WHITE = "#f4efe6";
 const GLASS = "#3b5170";
@@ -11,6 +11,24 @@ export const windowMaterial = mat(GLASS, { rough: 0.25, metal: 0.2, snow: 0 });
 function windowPane(w, h) {
   return mesh(rbox(w, h, 0.08, 0.03), windowMaterial, { cast: false });
 }
+// A proper window: white frame, glazing bars, a sill underneath. Faces +z; position and turn it like a pane.
+const trim = mat("#fbf8f2", { rough: 0.6 });
+function framedWindow(w, h, { bars = [1, 1], sill = true, frame = trim } = {}) {
+  const g = new THREE.Group();
+  g.add(mesh(rbox(w + 0.18, h + 0.18, 0.07, 0.03), frame, { cast: false }));
+  g.add(mesh(rbox(w, h, 0.08, 0.02), windowMaterial, { z: 0.02, cast: false }));
+  for (let i = 1; i < bars[0] + 1; i++) g.add(mesh(new THREE.BoxGeometry(0.05, h, 0.06), frame, { x: -w / 2 + (w * i) / (bars[0] + 1), z: 0.05, cast: false }));
+  for (let i = 1; i < bars[1] + 1; i++) g.add(mesh(new THREE.BoxGeometry(w, 0.05, 0.06), frame, { y: -h / 2 + (h * i) / (bars[1] + 1), z: 0.05, cast: false }));
+  if (sill) g.add(mesh(rbox(w + 0.34, 0.07, 0.2, 0.02), frame, { y: -h / 2 - 0.1, z: 0.07 }));
+  return g;
+}
+function place(o, x, y, z, ry = 0) { o.position.set(x, y, z); o.rotation.y = ry; return o; }
+// Shared surfaces: shingles for gable roofs, bricks for the shop's base
+const shingles = shingleTexture();
+const roofMat = (color) => mat(color, { rough: 0.75, map: shingles, bumpMap: shingles.userData.bump, bumpScale: 1.5 });
+const bricks = brickTexture();
+bricks.repeat.set(1.45, 0.42);
+bricks.userData.bump.repeat.copy(bricks.repeat);
 
 /* ---------- Factories ---------- */
 
@@ -19,6 +37,9 @@ const short = (text, n = 8) => (text.length > n ? `${text.slice(0, n - 1)}…` :
 function shopBuilding(color, name) {
   const g = new THREE.Group();
   g.add(mesh(rbox(4.6, 2.5, 3.6, 0.1), mat("#f6efe3"), { y: 1.25 }));
+  // Brick base with a stone band on top
+  g.add(mesh(rbox(4.66, 0.95, 3.66, 0.06), mat("#c9765a", { map: bricks, bumpMap: bricks.userData.bump, bumpScale: 1.2 }), { y: 0.48 }));
+  g.add(mesh(rbox(4.74, 0.09, 3.74, 0.03), trim, { y: 0.98 }));
   g.add(mesh(rbox(4.9, 0.28, 3.9, 0.08), mat("#5d5048"), { y: 2.62 }));
   // Sign
   const sign = mesh(new THREE.PlaneGeometry(3.4, 0.62), new THREE.MeshStandardMaterial({ map: labelTexture(short(name), { bg: "#fff6e8", fg: color, font: 70 }), roughness: 0.7 }), { y: 3.15, z: 1.2, cast: false });
@@ -30,9 +51,10 @@ function shopBuilding(color, name) {
   awning.rotation.x = 0.32;
   g.add(awning);
   // Door and windows
-  const door = windowPane(0.9, 1.5); door.position.set(0, 0.8, 1.82); g.add(door);
-  for (const x of [-1.5, 1.5]) { const w = windowPane(1.1, 1.0); w.position.set(x, 1.15, 1.82); g.add(w); }
-  for (const z of [-0.8, 0.8]) { const w = windowPane(0.9, 0.9); w.rotation.y = Math.PI / 2; w.position.set(2.32, 1.3, z); g.add(w); }
+  g.add(place(framedWindow(0.85, 1.5, { bars: [0, 1], sill: false, frame: mat(color, { rough: 0.6 }) }), 0, 0.8, 1.84));
+  g.add(mesh(rbox(1.3, 0.08, 0.5, 0.03), mat("#d8d2c6"), { y: 0.04, z: 2.0 }));
+  for (const x of [-1.5, 1.5]) g.add(place(framedWindow(1.05, 0.95, { bars: [1, 1] }), x, 1.45, 1.84));
+  for (const z of [-0.8, 0.8]) g.add(place(framedWindow(0.8, 0.85, { bars: [1, 1] }), 2.34, 1.5, z, Math.PI / 2));
   // Rooftop AC unit and a little server shed
   g.add(mesh(rbox(0.9, 0.5, 0.7, 0.06), mat("#c9ccd2", { metal: 0.3 }), { x: -1.2, y: 3.0, z: -0.8 }));
   const shed = new THREE.Group();
@@ -46,11 +68,12 @@ function shopBuilding(color, name) {
 function studioBuilding(color) {
   const g = new THREE.Group();
   g.add(mesh(rbox(4.2, 2.1, 3.2, 0.1), mat("#eef2f7"), { y: 1.05 }));
-  const roof = mesh(gableGeometry(4.7, 1.35, 3.6), mat(color, { rough: 0.6 }), { y: 2.08 });
+  g.add(mesh(rbox(4.28, 0.22, 3.28, 0.05), mat("#c9d2dc"), { y: 0.11 }));
+  const roof = mesh(gableGeometry(4.7, 1.35, 3.6), roofMat(color), { y: 2.08 });
   roof.rotation.y = Math.PI / 2;
   g.add(roof);
-  const big = windowPane(2.6, 1.1); big.position.set(0, 1.1, 1.62); g.add(big);
-  for (const z of [-0.6, 0.6]) { const w = windowPane(0.8, 0.8); w.rotation.y = Math.PI / 2; w.position.set(2.12, 1.2, z); g.add(w); }
+  g.add(place(framedWindow(2.5, 1.05, { bars: [2, 0] }), 0, 1.15, 1.64));
+  for (const z of [-0.6, 0.6]) g.add(place(framedWindow(0.7, 0.75, { bars: [1, 1] }), 2.14, 1.25, z, Math.PI / 2));
   // Rooftop dish
   const dish = mesh(new THREE.SphereGeometry(0.42, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.4), mat("#e9ecf0", { metal: 0.3, snow: 0 }), { x: -1.2, y: 3.15, z: 0.9 });
   dish.rotation.x = -0.9;
@@ -64,7 +87,8 @@ function studioBuilding(color) {
 function homeBuilding(color) {
   const g = new THREE.Group();
   g.add(mesh(rbox(4.2, 2.0, 3.3, 0.1), mat("#fbf3e4"), { y: 1.0 }));
-  const roof = mesh(gableGeometry(4.8, 1.5, 3.8), mat("#c96a3f", { rough: 0.7 }), { y: 1.98 });
+  g.add(mesh(rbox(4.28, 0.24, 3.38, 0.05), mat("#d9c3a0"), { y: 0.12 }));
+  const roof = mesh(gableGeometry(4.8, 1.5, 3.8), roofMat("#d0713f"), { y: 1.98 });
   roof.rotation.y = Math.PI / 2;
   g.add(roof);
   // Cat-ear roof
@@ -75,12 +99,15 @@ function homeBuilding(color) {
     g.add(mesh(new THREE.ConeGeometry(0.2, 0.45, 4), mat("#f2b9a8"), { x, y: 3.5, z: 1.32, ry: Math.PI / 4 }));
   }
   g.add(mesh(rbox(0.45, 0.9, 0.45, 0.05), mat("#9c5a3c"), { x: 1.4, y: 3.0, z: -0.8 }));
-  const door = mesh(rbox(0.85, 1.35, 0.1, 0.06), mat("#8a5a3b"), { y: 0.68, z: 1.66 });
+  g.add(mesh(rbox(1.05, 1.5, 0.08, 0.04), trim, { y: 0.75, z: 1.65 }));
+  const door = mesh(rbox(0.85, 1.35, 0.1, 0.06), mat("#8a5a3b"), { y: 0.68, z: 1.68 });
   g.add(door);
+  g.add(mesh(new THREE.SphereGeometry(0.05, 8, 6), mat("#e8c060", { metal: 0.6, rough: 0.3 }), { x: 0.28, y: 0.7, z: 1.75 }));
+  g.add(mesh(rbox(1.2, 0.08, 0.5, 0.03), mat("#d8cbb4"), { y: 0.04, z: 1.95 }));
   const round = mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.08, 24), windowMaterial, { x: 1.25, y: 1.25, z: 1.67 });
   round.rotation.x = Math.PI / 2;
   g.add(round);
-  const w = windowPane(0.9, 0.8); w.position.set(-1.25, 1.2, 1.66); g.add(w);
+  g.add(place(framedWindow(0.85, 0.75, { bars: [1, 1] }), -1.25, 1.25, 1.66));
   // Flower boxes by the door
   for (const x of [-1.9, 1.9]) {
     g.add(mesh(rbox(0.7, 0.35, 0.4, 0.05), mat("#a0673f"), { x, y: 0.18, z: 2.1 }));
@@ -181,7 +208,8 @@ export function factory(def) {
   g.position.set(def.x, 0, def.z);
   const tiles = tileTexture({ home: "#e6d3b3", studio: "#d7dde6", shop: "#dcc2a0" }[def.building] || "#dcc2a0");
   tiles.repeat.set(def.w / 3, def.d / 3);
-  g.add(mesh(rbox(def.w, 0.3, def.d, 0.12), new THREE.MeshStandardMaterial({ map: tiles, roughness: 0.9 }), { y: 0.15 }));
+  tiles.userData.bump.repeat.copy(tiles.repeat);
+  g.add(mesh(rbox(def.w, 0.3, def.d, 0.12), new THREE.MeshStandardMaterial({ map: tiles, bumpMap: tiles.userData.bump, bumpScale: 1.4, roughness: 0.9 }), { y: 0.15 }));
   // Low railing around the yard
   const rail = mat("#c8bfb2");
   for (const sz of [-1, 1]) g.add(mesh(rbox(def.w - 0.4, 0.22, 0.12, 0.05), rail, { y: 0.41, z: sz * (def.d / 2 - 0.15) }));
@@ -241,7 +269,8 @@ export function bench(x, z, ry) {
 export function hub(def) {
   const g = new THREE.Group();
   g.position.set(def.x, 0, def.z);
-  const top = new THREE.MeshStandardMaterial({ map: radialTileTexture("#e7e5df"), roughness: 0.9 });
+  const plaza = radialTileTexture("#e7e5df");
+  const top = new THREE.MeshStandardMaterial({ map: plaza, bumpMap: plaza.userData.bump, bumpScale: 1.2, roughness: 0.9 });
   const side = mat("#cfcbc2");
   g.add(mesh(new THREE.CylinderGeometry(def.radius, def.radius + 0.1, 0.32, 72), [side, top, side], { y: 0.16 }));
   // Arched windows around the wall
@@ -460,10 +489,12 @@ function robot(color = "#c9a227") {
 export function agentPlatform(def) {
   const g = new THREE.Group();
   g.position.set(def.x, 0, def.z);
-  const top = new THREE.MeshStandardMaterial({ map: radialTileTexture("#e9e8e4", { rings: 7 }), roughness: 0.9 });
+  const plaza = radialTileTexture("#e9e8e4", { rings: 7 });
+  const top = new THREE.MeshStandardMaterial({ map: plaza, bumpMap: plaza.userData.bump, bumpScale: 1.2, roughness: 0.9 });
   const side = mat("#cfcbc2");
   g.add(mesh(new THREE.CylinderGeometry(def.radius, def.radius + 0.1, 0.34, 64), [side, top, side], { y: 0.17 }));
-  const stageTop = new THREE.MeshStandardMaterial({ map: radialTileTexture("#f2f1ee", { rings: 4 }), roughness: 0.8 });
+  const stage = radialTileTexture("#f2f1ee", { rings: 4 });
+  const stageTop = new THREE.MeshStandardMaterial({ map: stage, bumpMap: stage.userData.bump, bumpScale: 1, roughness: 0.8 });
   g.add(mesh(new THREE.CylinderGeometry(def.radius * 0.58, def.radius * 0.6, 0.28, 56), [side, stageTop, side], { y: 0.48 }));
   // Glowing ring that lights up while working
   const ring = mesh(new THREE.TorusGeometry(def.radius * 0.6, 0.06, 8, 64), new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.15 }), { y: 0.63, cast: false });

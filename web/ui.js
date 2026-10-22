@@ -52,7 +52,14 @@ export function createUI({ onTool, cities }) {
   if (!narrow() && innerWidth <= 1100) { $("#panel").classList.add("hidden"); $('[data-act="panel"]').classList.add("off"); }
   for (const b of document.querySelectorAll(".toolbar > button")) b.addEventListener("click", () => {
     const act = b.dataset.act;
-    if (act === "labels") { document.body.classList.toggle("no-labels"); b.classList.toggle("off"); }
+    if (act === "labels") {
+      // Three steps: the lines worth a look (default) → every line → none
+      const next = { key: "all", all: "off", off: "key" }[document.body.dataset.labels || "key"];
+      document.body.dataset.labels = next;
+      document.body.classList.toggle("no-labels", next === "off");
+      b.classList.toggle("off", next === "off");
+      b.querySelector("span").textContent = t(next === "all" ? "labelsAll" : "labels");
+    }
     // Phones: the list is a sheet over the bottom of the scene, closed until asked for
     else if (act === "panel" && narrow()) document.body.classList.toggle("sheet");
     else if (act === "panel") { $("#panel").classList.toggle("hidden"); b.classList.toggle("off"); }

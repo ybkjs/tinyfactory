@@ -18,10 +18,13 @@ import { buildWorld } from "./world.js";
 const params = new URLSearchParams(location.search);
 const TOKEN = params.get("token");
 const api = (path) => `${path}${TOKEN ? `${path.includes("?") ? "&" : "?"}token=${encodeURIComponent(TOKEN)}` : ""}`;
-// Quality: medium (default) renders straight to the screen at native resolution with hardware MSAA — sharpest and cheapest;
-// high adds post-processing with ambient occlusion (for screenshots); low is 1x resolution for old machines. Capped at 30 fps.
-const QUALITY = params.get("q") || "medium";
-const POST = QUALITY === "high";
+// Quality: auto (default) starts with post-processing (soft ambient occlusion + tilt-shift, the miniature look) and drops to
+// medium for good if this machine can't hold the frame rate; medium renders straight to the screen with hardware MSAA;
+// high always keeps the post-processing (for screenshots); low is 1x resolution for old machines. Capped at 30 fps.
+const QUALITY = params.get("q") || "auto";
+const savedQuality = (() => { try { return localStorage.getItem("tinyfactory-quality"); } catch { return null; } })();
+const WANT_POST = QUALITY === "high" || (QUALITY === "auto" && savedQuality !== "medium");
+let post = WANT_POST;
 const FPS_CAP = Number(params.get("fps") || 30);
 
 /* ---------- Renderer, scene ---------- */
@@ -29,7 +32,7 @@ const FPS_CAP = Number(params.get("fps") || 30);
 const canvas = document.createElement("canvas");
 canvas.id = "scene";
 document.body.prepend(canvas);
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !POST && params.get("aa") !== "0", powerPreference: "high-performance" });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: QUALITY !== "high" && params.get("aa") !== "0", powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY === "low" ? 1 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -78,11 +81,25 @@ function safeArea() {
   return narrow() ? { l: 14, r: innerWidth - 14, t: 150, b: innerHeight - 78 } : { l: innerWidth <= 1100 ? 28 : 348, r: innerWidth - 28, t: 108, b: innerHeight - 104 };
 }
 // Frame the whole park inside the safe area: find the closest distance that fits, then slide the target to centre it
+// The points that must be in view: yard corners, building tops (their labels sit above), platforms and the hub.
+// Fitting these instead of the bounding box keeps empty corners of the box from shrinking the park.
+function framePoints() {
+  const pts = [];
+  const ring = (x, z, r, y) => { for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; pts.push(new THREE.Vector3(x + Math.cos(a) * r, y, z + Math.sin(a) * r)); } };
+  for (const f of layout.factories) {
+    for (const dx of [-f.w / 2, f.w / 2]) for (const dz of [-f.d / 2, f.d / 2]) pts.push(new THREE.Vector3(f.x + dx, 0, f.z + dz));
+    pts.push(new THREE.Vector3(f.x - f.w / 2 + 3.4, 6.5, f.z - f.d / 2 + 2.6));
+  }
+  for (const a of layout.agents) { ring(a.x, a.z, a.radius, 0); pts.push(new THREE.Vector3(a.x, 6, a.z)); }
+  ring(layout.hub.x, layout.hub.z, layout.hub.radius, 0);
+  pts.push(new THREE.Vector3(layout.hub.x, 8.5, layout.hub.z));
+  if (layout.pond) ring(layout.pond.x, layout.pond.z, layout.pond.r, 0);
+  return pts;
+}
 function homeView() {
   const b = layout.bounds;
   const view = { target: new THREE.Vector3((b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2), az: portrait() ? Math.PI / 2 - 0.08 : -0.06, polar: portrait() ? 0.6 : 0.84, dist: 80 };
-  const corners = [];
-  for (const x of [b.minX - 1, b.maxX + 1]) for (const z of [b.minZ - 1, b.maxZ + 1]) for (const y of [0, 3]) corners.push(new THREE.Vector3(x, y, z));
+  const corners = framePoints();
   const cam = new THREE.PerspectiveCamera(camera.fov, innerWidth / innerHeight, 1, 1000);
   const toScreen = (p) => { const q = p.clone().project(cam); return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight]; };
   const box = () => {
@@ -195,11 +212,12 @@ scene.traverse((o) => {
   transparentMeshes.push(o);
   if (o.material.isMeshPhysicalMaterial) { o.material.envMap = envMap; o.material.needsUpdate = true; }
 });
-if (QUALITY === "high") { scene.environment = envMap; scene.environmentIntensity = 0.35; }
+const useEnvironment = (on) => { scene.environment = on ? envMap : null; scene.environmentIntensity = 0.35; };
+useEnvironment(post);
 
 const size = renderer.getDrawingBufferSize(new THREE.Vector2());
 let composer = null, gtao = null, tiltH = null, tiltV = null;
-if (POST) {
+if (WANT_POST) {
   composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 }));
   composer.addPass(new RenderPass(scene, camera));
   gtao = new GTAOPass(scene, camera, size.x, size.y);
@@ -231,7 +249,7 @@ const tiltShader = (axis) => ({
       gl_FragColor = c;
     }`
 });
-if (POST) {
+if (WANT_POST) {
   tiltH = new ShaderPass(tiltShader("x"));
   tiltV = new ShaderPass(tiltShader("y"));
   composer.addPass(tiltH);
@@ -250,9 +268,11 @@ function resize() {
   HOME = homeView();
   if (portrait() !== wasPortrait) { wasPortrait = portrait(); Object.assign(rig.goal, { ...HOME, target: HOME.target.clone() }); }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  if (!POST) return;
+  if (!composer) return;
   composer.setSize(innerWidth, innerHeight);
-  gtao?.setSize(s.x, s.y);
+  // Ambient occlusion is soft anyway: half resolution on sharp screens costs a quarter as much
+  const ao = renderer.getPixelRatio() >= 1.5 ? 0.5 : 1;
+  gtao?.setSize(Math.round(s.x * ao), Math.round(s.y * ao));
   tiltH.uniforms.step.value.set(2.2 / s.x * renderer.getPixelRatio(), 0);
   tiltV.uniforms.step.value.set(0, 2.2 / s.y * renderer.getPixelRatio());
 }
@@ -339,9 +359,9 @@ function applyLighting(dt) {
   sun.target.position.copy(rig.target);
   const cloudDim = 1 - sky.cloud * 0.5;
   // Nights stay readable: a bright moon and a blue-grey sky light keep the buildings' own colours
-  sun.intensity = THREE.MathUtils.lerp(0.95, 3.1 * cloudDim, day);
+  sun.intensity = THREE.MathUtils.lerp(0.95, 3.5 * cloudDim, day);
   sun.color.copy(tmpColor.set("#bccaff")).lerp(new THREE.Color("#fff1dc").lerp(new THREE.Color("#ffb070"), golden * day), day);
-  hemi.intensity = THREE.MathUtils.lerp(0.8, 1.15 + sky.cloud * 0.25, day);
+  hemi.intensity = THREE.MathUtils.lerp(0.8, 0.98 + sky.cloud * 0.35, day);
   hemi.color.set("#5f72a6").lerp(new THREE.Color(sky.cloud > 0.5 ? "#e4e9ef" : "#d6e9ff"), day);
   hemi.groundColor.set("#2c3628").lerp(new THREE.Color(sky.snow > 0.5 ? "#c9d2dc" : "#5d7a3a"), day);
   if (scene.environment) scene.environmentIntensity = THREE.MathUtils.lerp(0.08, 0.35, day);
@@ -457,6 +477,7 @@ const LAMP = { running: "#4fd16a", live: "#4fd16a", queued: "#5b86ff", warn: "#f
 
 function animate(dt, t) {
   scrollBelts(dt, 1);
+  if (world.water?.material.normalMap) { world.water.material.normalMap.offset.x += dt * 0.012; world.water.material.normalMap.offset.y += dt * 0.007; }
   parcels.update(dt);
   updatePuffs(dt);
   world.hub.userData.turntable.rotation.y += dt * (0.25 + parcels.count() * 0.12);
@@ -519,6 +540,7 @@ function screenOf(p) {
 }
 // Big labels are centred above their anchor; their boxes are remembered so small labels can steer around them
 let bigBoxes = [];
+const KEY_STATUS = new Set(["running", "live", "warn", "queued"]);
 function placeAt(el, x, bottom) {
   el.style.display = "";
   const w = el._w || 120, h = el._h || 34, anchor = bottom;
@@ -528,6 +550,8 @@ function placeAt(el, x, bottom) {
     if (!hit) break;
     bottom = hit[1] - 4;
   }
+  // Keep the whole label on screen; the stem stays under its middle
+  x = THREE.MathUtils.clamp(x, w / 2 + 8, Math.max(w / 2 + 8, innerWidth - w / 2 - 8));
   el.style.transform = `translate(${x}px, ${bottom}px) translate(-50%, -100%)`;
   el.style.setProperty("--stem", `${16 + anchor - bottom}px`);
   bigBoxes.push([x - w / 2 - 4, bottom - h - 4, x + w / 2 + 4, anchor + 18]);
@@ -553,11 +577,14 @@ function updateLabels() {
   }
   // Machine labels of all factories: sorted by screen height and stacked to the right of their machines, never overlapping.
   // Left-aligned so long names grow toward the hub instead of covering the factory building.
-  const items = world.factories.flatMap((f) => f.userData.machines.map((m) => {
+  const mode = document.body.dataset.labels || "key";
+  const all = world.factories.flatMap((f) => f.userData.machines.map((m) => {
     const line = lineById.get(m.userData.line.id) || m.userData.line;
     const el = ui.label(`m-${line.id}`, `<i class="dot ${line.status === "scheduled" ? "hollow" : line.status || "idle"}"></i>${esc(nameOf(line.name))}<small>${esc(lineStatus(line))}</small>`, "small");
     return { id: line.id, el, anchor: screenOf(m.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0.2, 1.75, 0))) };
-  })).filter((it) => it.anchor).sort((a, b) => a.anchor.y - b.anchor.y);
+  }));
+  // By default only the lines worth a look carry a label; the labels button switches to every line, then none
+  const items = all.filter((it) => it.anchor && (mode === "all" || KEY_STATUS.has(lineById.get(it.id)?.status))).sort((a, b) => a.anchor.y - b.anchor.y);
   const lift = Math.max(14, 600 / rig.dist);
   // Stack the labels top-down; if the column runs into the toolbar, drop the least important label and try again
   const rank = { warn: 0, running: 1, live: 2, queued: 3, scheduled: 4, idle: 5, paused: 6 };
@@ -585,7 +612,7 @@ function updateLabels() {
     shown = shown.filter((it) => it !== drop);
   }
   const visible = new Set(placed.map((p) => p.it.id));
-  for (const it of items) if (!visible.has(it.id)) { it.el.style.display = "none"; hideLeader(it.id); }
+  for (const it of all) if (!visible.has(it.id)) { it.el.style.display = "none"; hideLeader(it.id); }
   for (const { it, x, bottom, h } of placed) {
     it.el.style.display = "";
     it.el.style.transform = `translate(${x}px, ${bottom}px) translate(0, -100%)`;
@@ -733,7 +760,13 @@ function adaptQuality() {
   const fps = (adapt.frames * 1000) / span;
   adapt.frames = 0;
   adapt.since = now;
-  if (QUALITY !== "medium" || params.has("fps") || now < adapt.quietUntil || document.visibilityState !== "visible" || !document.hasFocus()) return;
+  if (params.has("fps") || now < adapt.quietUntil || document.visibilityState !== "visible" || !document.hasFocus()) return;
+  // Auto: post-processing goes first if the frame rate can't keep up, and stays off on this machine from then on
+  if (post && QUALITY === "auto") {
+    if (fps < 24) { if (++adapt.bad >= 2) { post = false; useEnvironment(false); adapt.bad = 0; adapt.quietUntil = now + 6000; try { localStorage.setItem("tinyfactory-quality", "medium"); } catch { /* private mode */ } } } else adapt.bad = 0;
+    return;
+  }
+  if (QUALITY !== "medium" && QUALITY !== "auto") return;
   const dpr = renderer.getPixelRatio();
   const step = (next) => { renderer.setPixelRatio(next); resize(); adapt.bad = adapt.good = 0; adapt.quietUntil = now + 6000; };
   if (fps < 20) { adapt.good = 0; if (++adapt.bad >= 2 && dpr > MIN_DPR) step(Math.max(MIN_DPR, dpr - 0.25)); }
@@ -768,7 +801,7 @@ function frame() {
     ui.renderClock(now, cityName(city), day < 0.15 && w.emoji === "☀️" ? { ...w, emoji: "🌙" } : day < 0.15 && w.emoji === "⛅" ? { ...w, emoji: "☁️" } : w);
   }
   if (frameNo++ % 3 === 0) renderer.shadowMap.needsUpdate = true;
-  if (POST) composer.render(); else renderer.render(scene, camera);
+  if (post) composer.render(); else renderer.render(scene, camera);
   adaptQuality();
 }
 frame();

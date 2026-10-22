@@ -33,12 +33,12 @@ const shade = (hex, amount) => {
 // Grass: large soft patches plus fine speckles
 export function grassTexture() {
   return canvasTexture(1024, (ctx, s) => {
-    ctx.fillStyle = "#6f9a3c";
+    ctx.fillStyle = "#76a243";
     ctx.fillRect(0, 0, s, s);
     for (let i = 0; i < 260; i++) {
       const x = rand() * s, y = rand() * s, r = range(40, 140);
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      const tone = pick(["#7fa846", "#668f36", "#86ad4c", "#5f8a33", "#79a242"]);
+      const tone = pick(["#86b04d", "#6c963a", "#8fb655", "#668f37", "#7fa947", "#93b85a"]);
       g.addColorStop(0, tone + "aa");
       g.addColorStop(1, tone + "00");
       ctx.fillStyle = g;
@@ -67,9 +67,23 @@ export function gravelTexture() {
   });
 }
 
+// Height map for paving: stones raised, grout sunk, edges rounded off (used as a bump map)
+function paving(draw) {
+  const bump = canvasTexture(512, (ctx, s) => { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, s, s); ctx.filter = "blur(1.5px)"; draw(ctx, s); }, { srgb: false });
+  return bump;
+}
+
 // Square paving for factory yards: each tile slightly different, with grout
 export function tileTexture(base = "#d9c3a5", { tiles = 8, grout = "#b9a68c" } = {}) {
-  return canvasTexture(512, (ctx, s) => {
+  const step = 512 / tiles;
+  const bump = paving((ctx) => {
+    for (let i = 0; i < tiles; i++) for (let j = 0; j < tiles; j++) {
+      const v = 200 + Math.floor(rand() * 55);
+      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillRect(i * step + 3, j * step + 3, step - 6, step - 6);
+    }
+  });
+  const texture = canvasTexture(512, (ctx, s) => {
     ctx.fillStyle = grout;
     ctx.fillRect(0, 0, s, s);
     const step = s / tiles, gap = 3;
@@ -80,11 +94,30 @@ export function tileTexture(base = "#d9c3a5", { tiles = 8, grout = "#b9a68c" } =
       }
     }
   });
+  texture.userData.bump = bump;
+  return texture;
 }
 
 // Round plaza: rings of stone tiles (CylinderGeometry cap UVs map to a disc)
 export function radialTileTexture(base = "#e3e1dc", { rings = 9, grout = "#bdbab3" } = {}) {
-  return canvasTexture(1024, (ctx, s) => {
+  const stones = (ctx, s, fill) => {
+    const c = s / 2, ringW = c / rings;
+    for (let r = 0; r < rings; r++) {
+      const inner = r * ringW + 2, outer = (r + 1) * ringW - 2;
+      const count = Math.max(6, Math.round((2 * Math.PI * (r + 0.5) * ringW) / ringW / 1.1));
+      for (let k = 0; k < count; k++) {
+        const a0 = (k / count) * Math.PI * 2 + 0.01, a1 = ((k + 1) / count) * Math.PI * 2 - 0.01;
+        ctx.beginPath();
+        ctx.arc(c, c, outer, a0, a1);
+        ctx.arc(c, c, Math.max(inner, 0), a1, a0, true);
+        ctx.closePath();
+        ctx.fillStyle = fill();
+        ctx.fill();
+      }
+    }
+  };
+  const bump = canvasTexture(1024, (ctx, s) => { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, s, s); ctx.filter = "blur(2px)"; stones(ctx, s, () => { const v = 190 + Math.floor(rand() * 65); return `rgb(${v},${v},${v})`; }); }, { srgb: false, repeat: 1 });
+  const texture = canvasTexture(1024, (ctx, s) => {
     const c = s / 2;
     ctx.fillStyle = grout;
     ctx.fillRect(0, 0, s, s);
@@ -103,6 +136,8 @@ export function radialTileTexture(base = "#e3e1dc", { rings = 9, grout = "#bdbab
       }
     }
   }, { repeat: 1 });
+  texture.userData.bump = bump;
+  return texture;
 }
 
 // Belt surface: dark with cross stripes (scrolling the offset makes it move)
@@ -191,4 +226,74 @@ export function gableGeometry(w, h, d) {
   const geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2 });
   geometry.translate(0, 0, -d / 2);
   return geometry;
+}
+
+/* ---------- Building surfaces: shingles, bricks (light tones, tinted by the material colour) and rippling water ---------- */
+
+// Roof shingles in rows, each row offset by half a shingle; rows run along the ridge
+export function shingleTexture() {
+  const rows = 8, cols = 6;
+  const draw = (height) => (ctx, s) => {
+    const rh = s / rows, cw = s / cols;
+    ctx.fillStyle = height ? "#000" : "#8f8f8f";
+    ctx.fillRect(0, 0, s, s);
+    for (let r = 0; r < rows; r++) for (let c = -1; c <= cols; c++) {
+      const x = c * cw + (r % 2 ? cw / 2 : 0), y = r * rh;
+      const v = height ? 150 + Math.floor(rand() * 60) : 205 + Math.floor(rand() * 45);
+      const g = ctx.createLinearGradient(0, y, 0, y + rh);
+      g.addColorStop(0, `rgb(${Math.round(v * 0.82)},${Math.round(v * 0.82)},${Math.round(v * 0.82)})`);
+      g.addColorStop(1, `rgb(${v},${v},${v})`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.roundRect(x + 2, y + 1, cw - 4, rh - 2, [0, 0, cw * 0.35, cw * 0.35]);
+      ctx.fill();
+    }
+  };
+  const texture = canvasTexture(512, draw(false), { repeat: 0.9 });
+  texture.userData.bump = canvasTexture(512, draw(true), { repeat: 0.9, srgb: false });
+  // The roof's UVs run across the slope; turn the rows to lie along the ridge
+  for (const t of [texture, texture.userData.bump]) { t.center.set(0.5, 0.5); t.rotation = Math.PI / 2; }
+  return texture;
+}
+
+// Bricks in running bond with pale mortar; repeat is set per wall
+export function brickTexture() {
+  const rows = 16, cols = 8;
+  const draw = (height) => (ctx, s) => {
+    const rh = s / rows, cw = s / cols;
+    ctx.fillStyle = height ? "#000" : "#e9e4da";
+    ctx.fillRect(0, 0, s, s);
+    for (let r = 0; r < rows; r++) for (let c = -1; c <= cols; c++) {
+      const v = height ? 170 + Math.floor(rand() * 70) : 175 + Math.floor(rand() * 60);
+      ctx.fillStyle = height ? `rgb(${v},${v},${v})` : `rgb(${v},${Math.round(v * 0.93)},${Math.round(v * 0.88)})`;
+      ctx.fillRect(c * cw + (r % 2 ? cw / 2 : 0) + 2, r * rh + 2, cw - 4, rh - 4);
+    }
+  };
+  const texture = canvasTexture(512, draw(false));
+  texture.userData.bump = canvasTexture(512, draw(true), { srgb: false });
+  return texture;
+}
+
+// Normal map of gentle ripples for ponds (scroll its offset to make the water move)
+export function rippleNormals(noise) {
+  const size = 256, height = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = (x / size) * Math.PI * 2, v = (y / size) * Math.PI * 2;
+    // Sample on a torus so the map tiles seamlessly
+    height[y * size + x] = noise.noise4d(Math.cos(u) * 1.6, Math.sin(u) * 1.6, Math.cos(v) * 1.6, Math.sin(v) * 1.6) * 0.6
+      + noise.noise4d(Math.cos(u) * 4, Math.sin(u) * 4, Math.cos(v) * 4 + 7, Math.sin(v) * 4) * 0.25;
+  }
+  return canvasTexture(size, (ctx) => {
+    const img = ctx.createImageData(size, size);
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const h = (dx, dy) => height[((y + dy + size) % size) * size + ((x + dx + size) % size)];
+      const nx = (h(-1, 0) - h(1, 0)) * 3, ny = (h(0, -1) - h(0, 1)) * 3, l = Math.hypot(nx, ny, 1);
+      const i = (y * size + x) * 4;
+      img.data[i] = ((nx / l) * 0.5 + 0.5) * 255;
+      img.data[i + 1] = ((ny / l) * 0.5 + 0.5) * 255;
+      img.data[i + 2] = ((1 / l) * 0.5 + 0.5) * 255;
+      img.data[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }, { repeat: 2.5, srgb: false });
 }

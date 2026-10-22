@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 function signature(m) {
-  return [m.type, m.color?.getHex(), m.roughness, m.metalness, m.map?.uuid, m.emissive?.getHex(), m.emissiveIntensity, m.side, m.customProgramCacheKey?.() ?? ""].join("|");
+  return [m.type, m.color?.getHex(), m.roughness, m.metalness, m.map?.uuid, m.bumpMap?.uuid, m.vertexColors, m.emissive?.getHex(), m.emissiveIntensity, m.side, m.customProgramCacheKey?.() ?? ""].join("|");
 }
 
 function isDynamic(o) {
