@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 const SHAPE = {
   title: "string", city: "string|object", lang: "string", port: "number", host: "string", token: "string", interval: "number",
-  hide: "array", rename: "object", assign: "object", factories: "array", agents: "object", lines: "array", remote: "array", systemd: "object", github: "object", launchd: "object"
+  hide: "array", rename: "object", assign: "object", factories: "array", agents: "object", lines: "array", remote: "array", systemd: "object", github: "object", launchd: "object", alerts: "array", sources: "array", plugins: "object"
 };
 
 // Where JSON goes wrong, as a character index. V8 only reports a position for some mistakes, so walk the text:
@@ -78,6 +78,7 @@ export function checkConfig(config) {
   for (const [i, l] of (Array.isArray(config.lines) ? config.lines : []).entries()) if (!l?.id) warnings.push(`lines[${i}] needs an "id"`);
   for (const [i, f] of (Array.isArray(config.factories) ? config.factories : []).entries()) if (!f?.name) warnings.push(`factories[${i}] needs a "name"`);
   for (const p of Array.isArray(config.hide) ? config.hide : []) if (typeof p !== "string") warnings.push(`"hide" holds patterns like "cron:*", found ${typeOf(p)}`);
+  for (const [i, a] of (Array.isArray(config.alerts) ? config.alerts : []).entries()) if (!/^https?:\/\//.test(String(a?.url || ""))) warnings.push(`alerts[${i}] needs a "url" starting with https://`);
   for (const r of Array.isArray(config.github?.repos) ? config.github.repos : []) if (!/^[\w.-]+\/[\w.-]+$/.test(String(r))) warnings.push(`github.repos: "${r}" should look like "owner/repo"`);
   return { config, warnings };
 }

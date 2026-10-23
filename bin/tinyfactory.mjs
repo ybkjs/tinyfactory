@@ -4,8 +4,10 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { platform } from "node:os";
 import { resolveCity } from "../src/cities.mjs";
+import { createAlerts, sendTest } from "../src/alerts.mjs";
 import { createCollector, SOURCES } from "../src/collect.mjs";
 import { loadConfig } from "../src/config.mjs";
+import { loadPlugins } from "../src/plugins.mjs";
 import { demoSource } from "../src/demo.mjs";
 import { doctor } from "../src/doctor.mjs";
 import { startServer } from "../src/server.mjs";
@@ -21,6 +23,7 @@ if (flag("help") || flag("h")) {
   npx tinyfactory              scan this machine and open the factory
   npx tinyfactory --demo       sample factory with simulated runs
   npx tinyfactory doctor       what each source found here, and why not
+  npx tinyfactory notify-test  send a test message to every alert target
 
   --port <n>       default 4520
   --host <addr>    default 127.0.0.1 (use --token when exposing it)
@@ -44,6 +47,14 @@ if (args[0] === "doctor") process.exit(await doctor({ configPath, version }));
 
 // A broken config stops here with where the mistake is, instead of being ignored without a word
 const loaded = loadConfig(configPath);
+const systemLang = Intl.DateTimeFormat().resolvedOptions().locale.startsWith("zh") ? "zh" : "en";
+if (args[0] === "notify-test" && !loaded.error) {
+  const targets = loaded.config.alerts || [];
+  if (!targets.length) { console.log('\n  No alerts configured. Add  "alerts": [{ "url": "https://…" }]  to the config (see docs/config.md).\n'); process.exit(1); }
+  const results = await sendTest(targets, { lang: loaded.config.lang || systemLang });
+  for (const r of results) console.log(`  ${r.ok ? "✓" : "✗"} ${r.target}${r.ok ? "" : `  ${r.error}`}`);
+  process.exit(results.every((r) => r.ok) ? 0 : 1);
+}
 if (loaded.error) { console.error(`\n  ✗ ${loaded.error}\n\n  Fix it and start again (npx tinyfactory doctor checks the file without starting).\n`); process.exit(1); }
 for (const w of loaded.warnings) console.warn(`  ! config: ${w}`);
 const config = loaded.config;
@@ -53,13 +64,18 @@ const host = option("host", config.host || "127.0.0.1");
 const token = option("token", config.token || (host === "127.0.0.1" || host === "localhost" ? "" : null));
 if (token === null) { console.error("Refusing to listen on a public address without --token."); process.exit(1); }
 
-const collector = createCollector({ config, sources: demo ? [demoSource()] : SOURCES, log: (m) => flag("verbose") && console.log(`[source] ${m}`) });
+// Your own sources from ~/.tinyfactory/sources/ and config.sources join the built-in ones
+const plugins = demo ? [] : await loadPlugins({ config, configPath, taken: SOURCES.map((s) => s.id), log: (m) => console.warn(`  ! plugin ${m}`) });
+const collector = createCollector({ config, sources: demo ? [demoSource()] : [...SOURCES, ...plugins], log: (m) => flag("verbose") && console.log(`[source] ${m}`) });
+const lang = option("lang", config.lang || systemLang);
+// Alerts watch every scan (the first one only notes what's already wrong); none in demo mode
+const alerts = createAlerts({ targets: demo ? [] : config.alerts || [], title: config.title || "", lang, log: (m) => console.warn(`  ! ${m}`) });
 await collector.refresh();
+await alerts.check(collector.state);
 const interval = Number(option("interval", config.interval || (demo ? 4 : 10)));
-setInterval(() => collector.refresh().catch(() => {}), interval * 1000);
+setInterval(() => collector.refresh().then((state) => alerts.check(state)).catch(() => {}), interval * 1000);
 
 const city = resolveCity(option("city", config.city));
-const lang = option("lang", config.lang || (Intl.DateTimeFormat().resolvedOptions().locale.startsWith("zh") ? "zh" : "en"));
 const info = { title: config.title || "", demo, version, city, lang, interval, platform: platform() };
 try {
   await startServer({ collector, port, host, token, info });
@@ -72,7 +88,7 @@ const url = `http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${port}/${token ?
 const shown = token ? url.replace(token, "<token>") : url;  // keep the token out of logs
 const s = collector.state;
 console.log(`\n  🏭 tinyfactory ${version}${demo ? " (demo)" : ""}\n  ${shown}\n`);
-console.log(`  ${s.factories.length} factories · ${s.factories.reduce((n, f) => n + f.lines.length, 0)} lines · ${s.agents.length} agents`);
+console.log(`  ${s.factories.length} factories · ${s.factories.reduce((n, f) => n + f.lines.length, 0)} lines · ${s.agents.length} agents${plugins.length ? ` · plugins: ${plugins.map((p) => p.id).join(", ")}` : ""}${config.alerts?.length ? ` · alerts to ${config.alerts.length}` : ""}`);
 if (!demo && !s.factories.length) console.log("  Nothing found yet. Try --demo, or report runs from any script:");
 console.log(`  curl -X POST ${url.replace(/\/(\?.*)?$/, "")}/api/event -H 'content-type: application/json' -d '{"line":"backup","status":"done"}'\n`);
 

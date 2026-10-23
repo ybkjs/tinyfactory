@@ -130,6 +130,8 @@ ssh -N -L 4525:127.0.0.1:4520 you@your-server
 - **分享海报**：底部「分享」按钮把当前画面做成一张带标题、日期和今日数字的海报，手机上直接调起系统分享。
 - **后台也看得见**：有产线需留意时，浏览器标签页标题前会显示数字「(1)」，图标上多一个红点。
 - **快速查找**：按 `/` 或 ⌘K（手机上点右上角搜索），输入名字的一部分，回车就飞过去打开详情。
+- **失败时通知你**：配置里加上飞书、钉钉、企业微信、Slack 或 Discord 机器人的地址，有产线开始需要留意、或者恢复正常时，会推送一条消息；连续两次检查确认才发，同时出问题的合并成一条，不会刷屏。`npx github:ybkjs/tinyfactory notify-test` 测试通不通，详见[配置说明](docs/config.md#alerts)。
+- **自定义数据源**：把一个 `.mjs` 文件放进 `~/.tinyfactory/sources/` 就能接入新工具，不用改源码；附带一个「心跳文件」示例插件，任务跑完更新一下某个文件，超时没更新就标红。
 - **巡游模式**：点「巡游」、按 P 或在网址后加 `?tour=1`，镜头缓慢绕园区转，哪条产线跑完就飞过去看几秒，适合放在副屏或电视上常开。
 - **夜间界面**：天黑后卡片和名牌自动变成深色。
 - **快捷键**：H 回全景，← → 转视角，+ − 缩放，L 切换名牌，T 收起或打开任务列表，P 巡游，Esc 关闭详情。
@@ -143,15 +145,16 @@ ssh -N -L 4525:127.0.0.1:4520 you@your-server
 
 - 只监听 `127.0.0.1`，不上传任何数据，没有统计。
 - 只读：不会修改你的任何任务。
-- 唯一的外部请求是天气：把你选的城市坐标发给 Open-Meteo。如果你在配置里开启了 GitHub Actions，还会通过你本机的 `gh` 查询那几个仓库。
+- 唯一的外部请求是天气：把你选的城市坐标发给 Open-Meteo。如果你在配置里开启了 GitHub Actions，还会通过你本机的 `gh` 查询那几个仓库；配置了告警，会把产线名称和状态发给你填的机器人地址。
 - 想在局域网或服务器上开放，必须加 `--token`：`npx github:ybkjs/tinyfactory --host 0.0.0.0 --token 你的密码`。
 
 ## 命令行参数
 
 ```
-npx github:ybkjs/tinyfactory           扫描这台电脑，打开工厂
-npx github:ybkjs/tinyfactory --demo    演示工厂（包裹是模拟的）
-npx github:ybkjs/tinyfactory doctor    自检：每个来源找到了什么、没找到的原因
+npx github:ybkjs/tinyfactory              扫描这台电脑，打开工厂
+npx github:ybkjs/tinyfactory --demo       演示工厂（包裹是模拟的）
+npx github:ybkjs/tinyfactory doctor       自检：每个来源找到了什么、没找到的原因
+npx github:ybkjs/tinyfactory notify-test  给配置的告警机器人发一条测试消息
 
 --port <n>        端口，默认 4520
 --host <addr>     默认 127.0.0.1（对外开放必须配 --token）

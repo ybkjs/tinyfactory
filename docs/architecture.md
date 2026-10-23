@@ -47,6 +47,9 @@ export async function collect(ctx) {
 - Add the module to `SOURCES` in `src/collect.mjs`, a "why nothing" hint to `WHERE` in `src/doctor.mjs`, a fixture
   under `test/fixtures/home` and a test in `test/sources.test.mjs`.
 
+**Without forking**: the same module dropped into `~/.tinyfactory/sources/` is loaded as a plugin (see
+[docs/config.md](config.md#plugins)); it can't import from `src/`, so keep it to Node's own modules.
+
 Good next sources: n8n, Cursor background agents, Home Assistant automations, GitLab CI. `schtasks.mjs` (parsing PowerShell JSON) and `github.mjs` (an opt-in source that shells out to a CLI and caches) are short examples to start from.
 
 ## The collector
@@ -56,7 +59,8 @@ then `assemble()` applies `hide`, `rename`, `assign` and `factories`, fills in k
 is free of Node APIs, so the online demo runs it in the browser with the demo source.
 
 `src/collect.mjs` adds the real sources; `src/server.mjs` serves `/api/state`, `/api/event` and `/api/weather`;
-`bin/tinyfactory.mjs` is the CLI; `src/config.mjs` loads and checks the config; `src/doctor.mjs` explains what was found.
+`bin/tinyfactory.mjs` is the CLI; `src/config.mjs` loads and checks the config; `src/doctor.mjs` explains what was found;
+`src/plugins.mjs` loads your own sources; `src/alerts.mjs` turns status changes into chat-bot messages.
 
 ## The page
 

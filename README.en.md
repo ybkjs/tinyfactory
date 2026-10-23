@@ -118,6 +118,8 @@ Full reference: [docs/config.md](docs/config.md) · a complete example: [example
 - **Share poster**: the Share button turns the current view into a poster with a title, the date and today's numbers; phones open the system share sheet.
 - **Visible from a background tab**: when a line needs attention the tab title reads "(1) …" and the icon gets a red dot.
 - **Quick finder**: press `/` or ⌘K (or tap search on phones), type part of a name, Enter flies there.
+- **Alerts**: add a Feishu, DingTalk, WeCom, Slack or Discord bot URL to the config and tinyfactory posts a message when a line starts needing attention and when it recovers; confirmed over two scans and grouped, so it doesn't spam. `notify-test` checks the connection: [docs](docs/config.md#alerts).
+- **Your own sources**: drop a `.mjs` file into `~/.tinyfactory/sources/`; an example "heartbeat files" plugin turns files that jobs leave behind into lines that go red when overdue.
 - **Tour mode**: the Tour button, P or `?tour=1` slowly orbits the park and flies to each new run for a few seconds: made for a second screen or a TV.
 - **Night interface**: after dusk the cards and labels turn dark.
 - **Keys**: H home, ← → turn, + − zoom, L labels, T task list, P tour, Esc closes a detail.
@@ -129,14 +131,15 @@ Full reference: [docs/config.md](docs/config.md) · a complete example: [example
 
 ## Privacy
 
-Listens on `127.0.0.1` only, uploads nothing, no telemetry, never modifies your jobs. The only outbound request is the weather lookup (your chosen city's coordinates to Open-Meteo), plus GitHub through your own `gh` if you list repos under `github`. To expose it on a network you must pass `--token`.
+Listens on `127.0.0.1` only, uploads nothing, no telemetry, never modifies your jobs. The only outbound request is the weather lookup (your chosen city's coordinates to Open-Meteo), plus GitHub through your own `gh` if you list repos under `github`, and the alert URLs you configure. To expose it on a network you must pass `--token`.
 
 ## CLI
 
 ```
-npx github:ybkjs/tinyfactory           scan this machine and open the factory
-npx github:ybkjs/tinyfactory --demo    sample factory with simulated runs
-npx github:ybkjs/tinyfactory doctor    what each source found here, and why not
+npx github:ybkjs/tinyfactory              scan this machine and open the factory
+npx github:ybkjs/tinyfactory --demo       sample factory with simulated runs
+npx github:ybkjs/tinyfactory doctor       what each source found here, and why not
+npx github:ybkjs/tinyfactory notify-test  send a test message to every alert target
 
 --port <n>  --host <addr>  --city <name>  --lang <zh|en>  --config <file>
 --interval <s>  --token <secret>  --no-open  --verbose  --version

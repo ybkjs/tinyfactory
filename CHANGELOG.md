@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Alerts**: a message to a Feishu / Lark, DingTalk, WeCom, Slack or Discord bot (or any URL, as JSON) when a line starts needing attention and when it recovers. Confirmed over two scans, grouped, at most one message every 30 seconds per target, warnings already there at startup left alone; Feishu and DingTalk signing. `tinyfactory notify-test` sends a test message; doctor lists the targets without their tokens.
+- **Plugins**: source files in `~/.tinyfactory/sources/` (or listed under `sources`) load next to the built-in ones, with options under `plugins.<id>`; doctor shows what each found and why a broken one didn't load. Example: `examples/plugins/heartbeat-files.mjs`, files that jobs leave behind as lines that go red when overdue.
 - **Tour mode** for a screen that's always on: a slow orbit of the park that flies to each new run for a few seconds (toolbar button, P, or `?tour=1`); any drag, click or camera key hands the camera back.
 - **Night interface**: after dusk the cards, labels and toolbar turn dark so they don't glare over the lit-up park, and turn light again in the morning.
 - **Faster first view**: the minified three.js (half the download), post-processing switched on just after the first frames, low-detail crowns for the forest beyond the park and lighter flowers (about a fifth fewer triangles every frame).

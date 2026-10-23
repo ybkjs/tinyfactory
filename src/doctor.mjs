@@ -4,7 +4,9 @@ import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { platform } from "node:os";
 import { assemble, SOURCES } from "./collect.mjs";
+import { describeTarget } from "./alerts.mjs";
 import { loadConfig } from "./config.mjs";
+import { loadPlugins } from "./plugins.mjs";
 import { home, run } from "./util.mjs";
 
 const os = platform();
@@ -44,21 +46,26 @@ export async function doctor({ configPath, version, out = console.log }) {
   out("  Sources");
   const ctx = { config, memory: {} };
   const groups = [];
-  for (const source of SOURCES) {
+  const problems = [];
+  const plugins = await loadPlugins({ config, configPath, taken: SOURCES.map((s) => s.id), log: (m) => problems.push(m) });
+  for (const source of [...SOURCES, ...plugins]) {
     if ((config.hide || []).includes(`${source.id}:*`)) { out(`  - ${pad(source.id, 10)} hidden by the config ("${source.id}:*")`); continue; }
     let result;
     try { result = await source.collect(ctx); } catch (e) { out(`  ✗ ${pad(source.id, 10)} error: ${e.message}`); continue; }
     const list = [result].flat().filter(Boolean);
     groups.push(...list);
     const lines = list.reduce((n, g) => n + (g.lines?.length || 0), 0);
-    if (lines) { out(`  ✓ ${pad(source.id, 10)} ${lines} line${lines === 1 ? "" : "s"}`); continue; }
-    const [ok, hint] = await (WHERE[source.id]?.() ?? [false, "nothing found"]);
+    if (lines) { out(`  ✓ ${pad(source.id, 10)} ${lines} line${lines === 1 ? "" : "s"}${source.file ? `  (plugin ${source.file})` : ""}`); continue; }
+    const [ok, hint] = await (WHERE[source.id]?.() ?? [false, source.file ? `nothing (plugin ${source.file})` : "nothing found"]);
     out(`  · ${pad(source.id, 10)} nothing${ok ? "" : ` — ${hint}`}`);
   }
+  for (const p of problems) out(`  ✗ plugin     ${p}`);
   const view = assemble(groups, config);
   const total = view.factories.reduce((n, f) => n + f.lines.length, 0);
   out(`\n  On the map: ${view.factories.length} factories · ${total} lines · ${view.agents.length} agents${view.counts.warn ? ` · ${view.counts.warn} need attention` : ""}`);
 
+  const alerts = config.alerts || [];
+  out(`  ${alerts.length ? "✓" : "·"} Alerts    ${alerts.length ? alerts.map(describeTarget).join(", ") + "  (npx tinyfactory notify-test sends a test)" : "none (optional: chat-bot messages when a line starts failing)"}`);
   const port = Number(config.port || 4520), host = config.host || "127.0.0.1";
   const free = await portFree(port, host);
   out(`  ${free ? "✓" : "·"} Port ${port} ${free ? "is free" : `is in use: tinyfactory may already be running at http://127.0.0.1:${port}/`}`);

@@ -12,7 +12,8 @@ Fixes go into the latest release. Please upgrade before reporting.
   Keep the default host, or use a token and an SSH tunnel as described in [docs/config.md](docs/config.md#several-machines).
 - It reads local files and runs read-only commands (`crontab -l`, `launchctl list`, `plutil -convert json -o -`, `systemctl list-units` / `show`, `journalctl`,
   `sqlite3 -readonly`, PowerShell `Get-ScheduledTask` on Windows, `gh run list` for repos you list). It never writes outside `~/.tinyfactory`.
-- The only outbound request is the weather lookup to Open-Meteo. If you list repositories under `github`, it also asks GitHub about them through your own `gh` CLI.
+- The only outbound request is the weather lookup to Open-Meteo. If you list repositories under `github`, it also asks GitHub about them through your own `gh` CLI; if you configure `alerts`, it posts line names and statuses to those URLs.
+- Plugins in `~/.tinyfactory/sources/` (or listed under `sources`) are code that runs with your permissions: only put files there you trust.
 
 ## Reporting a vulnerability
 

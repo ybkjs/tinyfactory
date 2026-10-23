@@ -45,6 +45,9 @@ Every line has an id of the form `source:name`: `codex:daily-news`, `systemd:bac
 | `remote` | object[] | Other machines running tinyfactory: `name`, `url`, `token`. Their lines join this map as `remote:<name>:<id>`. See [Several machines](#several-machines). |
 | `systemd` | object | `services`: always-on units to show as live lines (for example a bot). `include`: timers to keep even though they look like distro housekeeping. |
 | `launchd` | object | `include`: labels to keep even though they look like a vendor's updater (`com.google.…`). |
+| `alerts` | object[] | Chat-bot messages when a line starts needing attention and when it recovers: `url`, optional `secret` (Feishu and DingTalk signing), `kind`, `name`. See [Alerts](#alerts). |
+| `sources` | string[] | Extra source files to load (relative to this config file). Files in `~/.tinyfactory/sources/` load without being listed. See [Plugins](#plugins). |
+| `plugins` | object | Options for plugins, under each plugin's id: `{ "heartbeat": { … } }`. |
 | `github` | object | `repos`: `["owner/repo"]`. Shows those repositories' GitHub Actions workflows (needs the GitHub CLI, `gh`, logged in; asked at most once a minute). Off unless set: it's the only source that talks to the internet. |
 
 ### Schedules
@@ -58,6 +61,50 @@ Declared lines take a `schedule` like the ones the sources produce:
 { "type": "rrule", "value": "FREQ=WEEKLY;BYDAY=FR;BYHOUR=8;BYMINUTE=0" }
 { "type": "realtime" }
 { "type": "manual" }
+```
+
+## Alerts
+
+```json
+{
+  "alerts": [
+    { "url": "https://open.feishu.cn/open-apis/bot/v2/hook/…", "secret": "the bot's signing secret" },
+    { "url": "https://hooks.slack.com/services/…" }
+  ]
+}
+```
+
+tinyfactory posts a message when a line starts needing attention (failing, stalled, a remote out of reach…) and when
+it's back to normal:
+
+```
+🏭 My AI factory
+🔴 Nightly backup · My shop: failed 3× in a row
+🟢 Uptime check · My shop: back to normal
+```
+
+- The kind of bot is recognised from the address: Feishu / Lark, DingTalk, WeCom (企业微信), Slack, Discord. Any other
+  URL gets JSON: `{ "source": "tinyfactory", "text": "…", "changes": [{ "line", "name", "factory", "status", "kind", "note", "at" }] }`.
+  Set `"kind"` to override.
+- `secret` signs the request for Feishu and DingTalk bots that have signing turned on.
+- Only changes are sent. A line has to stay in its new state for two scans; warnings already there when tinyfactory
+  starts aren't sent (their recovery is); changes that happen together go out as one message; each target hears from
+  tinyfactory at most every 30 seconds.
+- `npx tinyfactory notify-test` sends a test message to every target and shows what each answered.
+- Alerts run where tinyfactory runs. To hear about a server while your laptop sleeps, configure them on the server.
+
+## Plugins
+
+Drop a source file into `~/.tinyfactory/sources/` (or list it under `sources`) and it joins the built-in ones. It
+exports an `id` and `collect(ctx)` exactly like the sources in `src/sources/` ([how they work](architecture.md#sources))
+and reads its options from `config.plugins[id]`. `npx tinyfactory doctor` shows what each plugin found, and why a
+broken one didn't load.
+
+[examples/plugins/heartbeat-files.mjs](../examples/plugins/heartbeat-files.mjs) turns files that jobs leave behind
+(a backup log, a report) into lines that go red when the file is overdue:
+
+```json
+{ "plugins": { "heartbeat": { "backup": { "file": "/var/backups/last.log", "every": 86400, "name": "Nightly backup" } } } }
 ```
 
 ## Several machines
