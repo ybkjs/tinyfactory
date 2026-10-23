@@ -68,6 +68,8 @@ canvas#scene:active { cursor: grabbing; }
 .toolbar > button { min-width: 64px; padding: 0 8px; white-space: nowrap; height: 58px; border: 0; border-radius: 16px; background: var(--card); box-shadow: 0 6px 20px rgba(40, 30, 10, 0.13); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #4a463f; cursor: pointer; font-family: inherit; transition: transform 0.12s, background 0.2s; }
 .toolbar > button:hover { transform: translateY(-2px); background: #fffdf8; }
 .toolbar > button.off { color: #b0a99f; }
+.toolbar > button.on { background: var(--ink); color: #fff; }
+.toolbar > button.on:hover { background: #3a3732; }
 .toolbar svg { width: 21px; height: 21px; }
 .weather-menu { position: fixed; z-index: 20; bottom: 96px; left: calc(50% + 107px); background: var(--card); border-radius: 14px; box-shadow: 0 6px 20px rgba(40, 30, 10, 0.15); padding: 6px; display: none; flex-direction: column; min-width: 168px; }
 .weather-menu.open { display: flex; }

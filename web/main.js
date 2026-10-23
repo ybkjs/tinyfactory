@@ -474,6 +474,7 @@ function dispatch(lineId, ok = true) {
   if (!line || !out) return;
   machineAnim.set(lineId, 2.5);
   sendWorker(line.machine, 2.6);
+  tourVisit(line.machine);
   parcels.send([line.belt, hubRoute(lineId, agentId, line.belt, out), out], {
     tint: ok === false ? "#e5484d" : undefined,
     onArrive: () => {
@@ -718,8 +719,40 @@ function updateLabels() {
 
 /* ---------- Camera controls ---------- */
 
+/* ---------- Tour: a slow orbit for a screen that's always on; each new run gets a short visit ---------- */
+
+const tour = { on: false, visiting: false, until: 0, next: 0 };
+function setTour(on) {
+  tour.on = on;
+  tour.visiting = false;
+  document.querySelector('.toolbar [data-act="tour"]')?.classList.toggle("on", on);
+  // Start on the whole park for a moment before the first visit
+  if (on) { ui.select(null); Object.assign(rig.goal, { target: HOME.target.clone(), dist: HOME.dist }); tour.next = performance.now() + 8000; }
+}
+function tourVisit(machine) {
+  const now = performance.now();
+  if (!tour.on || now < tour.next) return;
+  Object.assign(rig.goal, { target: machine.getWorldPosition(new THREE.Vector3()).setY(0), dist: Math.min(HOME.dist, 38) });
+  tour.visiting = true;
+  tour.until = now + 5000;
+  tour.next = now + 20000;
+}
+function updateTour(dt, t) {
+  const g = rig.goal;
+  if (tour.visiting) {
+    if (performance.now() < tour.until) return;
+    tour.visiting = false;
+    Object.assign(g, { target: HOME.target.clone(), dist: HOME.dist });
+  }
+  g.az += dt * 0.045;
+  g.polar = HOME.polar + Math.sin(t * 0.08) * 0.06;
+}
+
 function onTool(act, arg) {
   const g = rig.goal;
+  // Taking the camera back from the tour
+  if (tour.on && ["reset", "left", "right", "in", "out", "pick", "focus"].includes(act)) setTour(false);
+  if (act === "tour") return setTour(!tour.on);
   if (act === "reset") Object.assign(g, { target: HOME.target.clone(), az: HOME.az, polar: HOME.polar, dist: HOME.dist });
   if (act === "left") g.az -= Math.PI / 4;
   if (act === "right") g.az += Math.PI / 4;
@@ -794,6 +827,7 @@ const spread = () => { const [a, b] = [...pointers.values()]; return Math.hypot(
 canvas.addEventListener("pointerdown", (e) => {
   document.getElementById("weather-menu").classList.remove("open");
   document.body.classList.remove("sheet");
+  if (tour.on) setTour(false);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   canvas.setPointerCapture(e.pointerId);
   press = { x: e.clientX, y: e.clientY, n: pointers.size };
@@ -835,7 +869,7 @@ function release(e) {
 canvas.addEventListener("pointerup", release);
 canvas.addEventListener("pointercancel", release);
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-canvas.addEventListener("wheel", (e) => { e.preventDefault(); rig.goal.dist = THREE.MathUtils.clamp(rig.goal.dist * Math.exp(e.deltaY * 0.0012), 28, maxDist()); }, { passive: false });
+canvas.addEventListener("wheel", (e) => { e.preventDefault(); if (tour.on) setTour(false); rig.goal.dist = THREE.MathUtils.clamp(rig.goal.dist * Math.exp(e.deltaY * 0.0012), 28, maxDist()); }, { passive: false });
 
 /* ---------- Data: poll /api/state; new runs become parcels ---------- */
 
@@ -958,13 +992,13 @@ function updateTab() {
   iconLink.href = warn ? alertIcon : baseIcon;
 }
 
-// Keyboard: / or ⌘K find, H home, arrows turn, +/- zoom, L labels, T tasks, Esc closes a detail (ui.js)
+// Keyboard: / or ⌘K find, H home, arrows turn, +/- zoom, L labels, T tasks, P tour, Esc closes a detail (ui.js)
 addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); ui.openFinder(); return; }
   if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, [contenteditable]")) return;
   if (e.key === "/") { e.preventDefault(); ui.openFinder(); return; }
   const click = (act) => document.querySelector(`.toolbar [data-act="${act}"]`)?.click();
-  const keys = { h: () => onTool("reset"), ArrowLeft: () => onTool("left"), ArrowRight: () => onTool("right"), "+": () => onTool("in"), "=": () => onTool("in"), "-": () => onTool("out"), _: () => onTool("out"), l: () => click("labels"), t: () => click("panel") };
+  const keys = { h: () => onTool("reset"), ArrowLeft: () => onTool("left"), ArrowRight: () => onTool("right"), "+": () => onTool("in"), "=": () => onTool("in"), "-": () => onTool("out"), _: () => onTool("out"), l: () => click("labels"), t: () => click("panel"), p: () => onTool("tour") };
   const fn = keys[e.key.length === 1 ? e.key.toLowerCase() : e.key];
   if (!fn) return;
   e.preventDefault();
@@ -973,6 +1007,7 @@ addEventListener("keydown", (e) => {
 
 ui.render(state);
 updateTab();
+if (params.get("tour") === "1") setTour(true);
 setInterval(poll, Math.max(2, state.interval || 10) * 1000);
 ui.setCity(city.id);
 fetchWeather();
@@ -1018,7 +1053,8 @@ function frame() {
   if (pending < (1 / cap) * 0.85) return;
   const dt = Math.min(pending, 0.1), t = clock.elapsedTime;
   pending = 0;
-  const k = 1 - Math.exp(-dt * 4);
+  if (tour.on) updateTour(dt, t);
+  const k = 1 - Math.exp(-dt * (tour.on ? 1.2 : 4));
   rig.target.lerp(rig.goal.target, k);
   rig.az += (rig.goal.az - rig.az) * k;
   rig.polar += (rig.goal.polar - rig.polar) * k;

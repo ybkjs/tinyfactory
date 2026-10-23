@@ -14,14 +14,15 @@ const ICONS = {
   list: '<path d="M5 7h14M5 12h14M5 17h9"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
   share: '<path d="M12 4v11M7.5 8.5L12 4l4.5 4.5"/><path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>',
-  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>'
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>',
+  tour: '<circle cx="12" cy="12" r="8"/><path d="M10.2 8.8l5 3.2-5 3.2z"/>'
 };
 // Keyboard shortcuts shown in the button tooltips (handled in main.js)
-const KEYS = { reset: "H", left: "←", right: "→", in: "+", out: "−", labels: "L", panel: "T" };
+const KEYS = { reset: "H", left: "←", right: "→", in: "+", out: "−", labels: "L", panel: "T", tour: "P" };
 const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
 
 export function createUI({ onTool, cities }) {
-  const tools = [["home", "home", "reset"], ["left", "left", "left"], ["right", "right", "right"], ["in", "zoomIn", "in"], ["out", "zoomOut", "out"], ["tag", "labels", "labels"], ["list", "tasks", "panel"], ["sun", "weather", "weather"], ["share", "share", "share"]];
+  const tools = [["home", "home", "reset"], ["left", "left", "left"], ["right", "right", "right"], ["in", "zoomIn", "in"], ["out", "zoomOut", "out"], ["tag", "labels", "labels"], ["list", "tasks", "panel"], ["sun", "weather", "weather"], ["tour", "tour", "tour"], ["share", "share", "share"]];
   const previews = [["realtime", "live"], ["clearDay", "clear-day"], ["dusk", "dusk"], ["night", "night"], ["rain", "rain"], ["snow", "snow"], ["snowNight", "snow-night"]];
   document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
   document.body.insertAdjacentHTML("beforeend", `
@@ -47,7 +48,7 @@ export function createUI({ onTool, cities }) {
     <div class="card panel" id="panel"></div>
     <div class="labels" id="labels"></div>
     <div class="toolbar">
-      ${tools.map(([i, k, a]) => `<button data-act="${a}" title="${t(k)}${KEYS[a] ? ` (${KEYS[a]})` : ""}" aria-label="${t(k)}" class="${a === "in" || a === "out" ? "wide-only" : ""}${a === "out" || a === "weather" ? " group-end" : ""}">${icon(i)}<span>${t(k)}</span></button>`).join("")}
+      ${tools.map(([i, k, a]) => `<button data-act="${a}" title="${t(k)}${KEYS[a] ? ` (${KEYS[a]})` : ""}" aria-label="${t(k)}" class="${["in", "out", "tour"].includes(a) ? "wide-only" : ""}${a === "out" || a === "weather" ? " group-end" : ""}">${icon(i)}<span>${t(k)}</span></button>`).join("")}
     </div>
     <div class="weather-menu" id="weather-menu">
       <div class="menu-title">${t("city")}</div>
