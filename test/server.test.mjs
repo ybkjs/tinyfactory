@@ -20,7 +20,7 @@ after(() => { server.closeAllConnections(); server.close(); rmSync(home, { recur
 
 test("serves the page and three.js", async () => {
   assert.match(await (await fetch(`${base}/`)).text(), /tinyfactory/);
-  const three = await fetch(`${base}/vendor/three/build/three.module.js`);
+  const three = await fetch(`${base}/vendor/three/build/three.module.min.js`);
   assert.equal(three.status, 200);
   await three.arrayBuffer();
   assert.equal((await fetch(`${base}/../package.json`)).status, 404);

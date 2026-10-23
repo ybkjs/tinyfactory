@@ -237,10 +237,9 @@ function makeBlocked(zones) {
   };
 }
 
-// Puffy tree crowns: an icosphere kneaded with noise
-function blobGeometry(seedOffset) {
-  const geometry = new THREE.IcosahedronGeometry(1, 2);
-  const noise = new SimplexNoise({ random: rand });
+// Puffy tree crowns: an icosphere kneaded with noise. detail 1 has a quarter of the triangles, for trees far out.
+function blobGeometry(seedOffset, detail = 2, noise = new SimplexNoise({ random: rand })) {
+  const geometry = new THREE.IcosahedronGeometry(1, detail);
   const p = geometry.attributes.position, v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i);
@@ -287,7 +286,9 @@ function plantTrees(scene, blocked) {
     if (!grid.has(key)) grid.set(key, []);
     grid.get(key).push([x, z]);
   }
-  const blobs = [blobGeometry(0), blobGeometry(7.3), blobGeometry(13.1)];
+  // Each crown shape in two levels of detail from the same noise (so the seeded park looks the same as ever)
+  const shapes = [0, 7.3, 13.1].map((seed) => { const noise = new SimplexNoise({ random: rand }); return [blobGeometry(seed, 2, noise), blobGeometry(seed, 1, noise)]; });
+  const blobs = shapes.map(([near]) => near), far = shapes.map(([, low]) => low);
   const greens = ["#4f8a2e", "#5c9a35", "#3f7a28", "#6aa83c", "#4a8530", "#76b043"];
   const autumn = ["#e0a23a", "#d9822b", "#e8b84a", "#c9682a"];
   const leafMat = mat("#ffffff", { rough: 0.85, vertexColors: true }), barkMat = mat("#6b4a33");
@@ -300,8 +301,11 @@ function plantTrees(scene, blocked) {
     chunks.get(key).push(spot);
   }
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s3 = new THREE.Vector3(), v3 = new THREE.Vector3(), color = new THREE.Color();
-  for (const list of chunks.values()) {
-    const foliage = blobs.map((g) => {
+  for (const [key, list] of chunks) {
+    // The forest beyond the park only shows as a backdrop: low-detail crowns there (a third of all the triangles saved)
+    const [cx, cz] = key.split(",").map((n) => (Number(n) + 0.5) * CHUNK);
+    const shapesHere = Math.hypot(cx, cz * 1.2) > 46 ? far : blobs;
+    const foliage = shapesHere.map((g) => {
       const im = new THREE.InstancedMesh(g, leafMat, list.length * 3);
       im.castShadow = im.receiveShadow = true;
       im.count = 0;
@@ -377,7 +381,7 @@ function plantBorders(scene, curves, blocked, layout) {
   const spike = new THREE.ConeGeometry(0.06, 0.42, 5);
   spike.translate(0, 0.21, 0);
   const lavender = new THREE.InstancedMesh(spike, mat("#ffffff", { rough: 0.8, snow: 0.5 }), spots.length * 10);
-  const blossom = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 5), mat("#ffffff", { snow: 0.5 }), spots.length * 4);
+  const blossom = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.07, 0), mat("#ffffff", { snow: 0.5 }), spots.length * 4);
   let nb = 0, nl = 0, nf = 0;
   for (const [x, z] of spots) {
     if (blocked(x, z, 0.25)) continue;
@@ -434,7 +438,8 @@ function scatterGrass(scene, blocked) {
   scene.add(tuft);
 
   // Patches of lavender and wild flowers
-  const flower = new THREE.InstancedMesh(new THREE.SphereGeometry(0.075, 6, 5), mat("#ffffff", { snow: 0.5 }), 2600);
+  // Flowers are a few pixels across: 20 triangles each is plenty
+  const flower = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.075, 0), mat("#ffffff", { snow: 0.5 }), 2600);
   n = 0;
   for (let patch = 0; patch < 70 && n < 2600; patch++) {
     const cx = range(-42, 42), cz = range(-32, 30);

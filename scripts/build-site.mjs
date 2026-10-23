@@ -23,7 +23,7 @@ for (const name of ["assemble", "demo", "cities"]) {
 
 // three.js: the core build, then every addon the page imports and whatever those import in turn
 const copy = (rel) => { mkdirSync(dirname(join(OUT, "vendor/three", rel)), { recursive: true }); cpSync(join(THREE, rel), join(OUT, "vendor/three", rel)); };
-copy("build/three.module.js");
+copy("build/three.module.min.js");   // half the size of the readable build
 copy("LICENSE");
 const queue = [];
 for (const file of ["main.js", "bake.js", "util.js", "world.js", "structures.js", "flow.js"]) {

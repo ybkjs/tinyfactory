@@ -16,7 +16,7 @@ test("site: page, demo flag, link preview and every three.js import", () => {
   const page = readFileSync(join(out, "index.html"), "utf8");
   assert.match(page, /window\.TINYFACTORY_STATIC = true/);
   assert.match(page, /og:image/);
-  assert.ok(existsSync(join(out, "vendor/three/build/three.module.js")));
+  assert.ok(existsSync(join(out, "vendor/three/build/three.module.min.js")));
   for (const file of ["main.js", "bake.js", "util.js", "world.js"]) {
     for (const [, path] of readFileSync(join(out, file), "utf8").matchAll(/from "three\/addons\/([^"]+)"/g)) assert.ok(existsSync(join(out, "vendor/three/examples/jsm", path)), path);
   }

@@ -24,7 +24,10 @@ const api = (path) => `${path}${TOKEN ? `${path.includes("?") ? "&" : "?"}token=
 const QUALITY = params.get("q") || "auto";
 const savedQuality = (() => { try { return localStorage.getItem("tinyfactory-quality"); } catch { return null; } })();
 const WANT_POST = QUALITY === "high" || (QUALITY === "auto" && savedQuality !== "medium");
-let post = WANT_POST;
+// The first frames go straight to the screen (fewer shaders to compile, so the park shows sooner); post-processing
+// comes on a moment later. Screenshots with ?q=high get it from the start.
+let post = QUALITY === "high" && WANT_POST;
+let postFrom = WANT_POST && !post ? 20 : Infinity;
 const FPS_CAP = Number(params.get("fps") || 30);
 
 /* ---------- Renderer, scene ---------- */
@@ -59,9 +62,11 @@ async function fetchState() {
   if (!res.ok) throw new Error(`state ${res.status}`);
   return res.json();
 }
+performance.mark("tf:modules");
 let state = await fetchState().catch(() => ({ factories: [], agents: [], counts: {}, events: [], cities: [], stale: true }));
 if (!params.get("lang") && state.lang) setLang(state.lang);
 const DEMO = Boolean(state.demo);
+performance.mark("tf:state");
 const layout = computeLayout(state);
 const structure = signature(state);
 
@@ -145,6 +150,7 @@ scene.add(sun, sun.target);
 /* ---------- The park ---------- */
 
 const world = buildWorld(scene, layout);
+performance.mark("tf:world");
 const parcels = createParcels(scene);
 
 // Lamp glow at night: a sprite on the bulb and a light pool on the ground
@@ -203,6 +209,7 @@ function updatePuffs(dt) {
 
 // Merge static meshes once the glow positions are known
 bakeStatic(scene);
+performance.mark("tf:baked");
 
 /* ---------- Post-processing (q=high only): AO + tilt-shift ---------- */
 
@@ -213,7 +220,7 @@ scene.traverse((o) => {
   if (o.material.isMeshPhysicalMaterial) { o.material.envMap = envMap; o.material.needsUpdate = true; }
 });
 const useEnvironment = (on) => { scene.environment = on ? envMap : null; scene.environmentIntensity = 0.35; };
-useEnvironment(post);
+useEnvironment(WANT_POST);
 
 const size = renderer.getDrawingBufferSize(new THREE.Vector2());
 let composer = null, gtao = null, tiltH = null, tiltV = null;
@@ -1033,7 +1040,9 @@ function frame() {
   if (post) composer.render(); else renderer.render(scene, camera);
   adaptQuality();
   // The first frame is on screen: fade the loading screen out (after a couple of frames, so shaders have compiled)
-  if (frameNo === 3) { const splash = document.getElementById("splash"); if (splash) { splash.classList.add("done"); setTimeout(() => splash.remove(), 700); } }
+  if (frameNo === 1) performance.mark("tf:first-frame");
+  if (frameNo === postFrom) { postFrom = Infinity; post = true; adapt.quietUntil = performance.now() + 6000; }
+  if (frameNo === 3) { performance.mark("tf:ready"); const splash = document.getElementById("splash"); if (splash) { splash.classList.add("done"); setTimeout(() => splash.remove(), 700); } }
 }
 frame();
 window.__factory = { dispatch, onTool, scene, renderer, world, rig, weatherUniforms };
