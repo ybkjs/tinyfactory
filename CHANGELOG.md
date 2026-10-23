@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Tour mode** for a screen that's always on: a slow orbit of the park that flies to each new run for a few seconds (toolbar button, P, or `?tour=1`); any drag, click or camera key hands the camera back.
+- **Night interface**: after dusk the cards, labels and toolbar turn dark so they don't glare over the lit-up park, and turn light again in the morning.
+- **Faster first view**: the minified three.js (half the download), post-processing switched on just after the first frames, low-detail crowns for the forest beyond the park and lighter flowers (about a fifth fewer triangles every frame).
+
 ## 0.3.0 — 2026-10-22
 
 Two new sources, real history from the first look, a monitor you notice from another tab, and the groundwork of a

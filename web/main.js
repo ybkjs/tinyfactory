@@ -1044,7 +1044,7 @@ function adaptQuality() {
 }
 // Shadows refresh every third frame: parcels and characters move slowly enough
 renderer.shadowMap.autoUpdate = false;
-let frameNo = 0;
+let frameNo = 0, isNight = false;
 function frame() {
   requestAnimationFrame(frame);
   pending += clock.getDelta();
@@ -1061,6 +1061,9 @@ function frame() {
   rig.dist += (rig.goal.dist - rig.dist) * k;
   placeCamera();
   const { now, day } = applyLighting(dt);
+  // Dark cards after dusk; two thresholds so twilight doesn't flicker between the two
+  if (!isNight && day < 0.22) document.body.classList.add("night"), isNight = true;
+  else if (isNight && day > 0.32) document.body.classList.remove("night"), isNight = false;
   updateParticles(dt, t);
   animate(dt, t);
   updatePeople(dt, t, day);

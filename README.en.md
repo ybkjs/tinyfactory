@@ -118,7 +118,9 @@ Full reference: [docs/config.md](docs/config.md) · a complete example: [example
 - **Share poster**: the Share button turns the current view into a poster with a title, the date and today's numbers; phones open the system share sheet.
 - **Visible from a background tab**: when a line needs attention the tab title reads "(1) …" and the icon gets a red dot.
 - **Quick finder**: press `/` or ⌘K (or tap search on phones), type part of a name, Enter flies there.
-- **Keys**: H home, ← → turn, + − zoom, L labels, T task list, Esc closes a detail.
+- **Tour mode**: the Tour button, P or `?tour=1` slowly orbits the park and flies to each new run for a few seconds: made for a second screen or a TV.
+- **Night interface**: after dusk the cards and labels turn dark.
+- **Keys**: H home, ← → turn, + − zoom, L labels, T task list, P tour, Esc closes a detail.
 - Drag to rotate, right-drag to pan, scroll or pinch to zoom; click a line in the list to fly to it.
 
 | Dusk | Snowy night |

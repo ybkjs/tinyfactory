@@ -82,4 +82,4 @@ work for remote lines too.
 ## Page parameters
 
 `?q=auto|low|medium|high` quality (auto: ambient occlusion and tilt-shift, dropped when the frame rate suffers) ·
-`?fps=60` · `?city=` · `?lang=` · `?weather=clear-day|dusk|night|rain|snow|snow-night` (preview) · `?tilt=1`.
+`?fps=60` · `?city=` · `?lang=` · `?weather=clear-day|dusk|night|rain|snow|snow-night` (preview) · `?tilt=1` · `?tour=1` (start in tour mode).
