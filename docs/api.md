@@ -53,7 +53,7 @@ Wrap a cron job so it reports both outcomes:
   "history": { "systemd:backup": [{ "at": 1792627200000, "ok": true }] },
   "scanned": [{ "id": "systemd", "found": true }],
   "generatedAt": 1792627205000,
-  "title": "", "demo": false, "version": "0.3.0", "lang": "en", "interval": 10, "platform": "linux",
+  "title": "", "demo": false, "version": "0.4.0", "lang": "en", "interval": 10, "platform": "linux",
   "city": { "id": "london", "lat": 51.507, "lon": -0.128 }, "cities": []
 }
 ```
